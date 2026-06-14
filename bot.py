@@ -5,6 +5,8 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+volume_memory = {}
+
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable bulunamadı.")
 
@@ -304,6 +306,113 @@ async def smart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"Hata:\n{e}")
+async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.chat_id
+
+    try:
+        global volume_memory
+
+        data = fetch_markets(order="volume_desc", per_page=100)
+
+        alerts = []
+
+        for coin in data:
+            coin_id = coin["id"]
+            symbol = coin["symbol"].upper()
+            name = coin["name"]
+            price = coin["current_price"]
+            volume = coin["total_volume"]
+            change = coin.get("price_change_percentage_24h") or 0
+
+            if volume < 50_000_000:
+                continue
+
+            old_volume = volume_memory.get(coin_id)
+
+            volume_memory[coin_id] = volume
+
+            if old_volume is None:
+                continue
+
+            diff = volume - old_volume
+
+            if old_volume <= 0:
+                continue
+
+            spike_percent = (diff / old_volume) * 100
+
+            if diff > 10_000_000 and spike_percent >= 3:
+                alerts.append({
+                    "symbol": symbol,
+                    "name": name,
+                    "price": price,
+                    "volume": volume,
+                    "diff": diff,
+                    "spike_percent": spike_percent,
+                    "change": change
+                })
+
+        alerts = sorted(
+            alerts,
+            key=lambda x: x["spike_percent"],
+            reverse=True
+        )[:5]
+
+        if not alerts:
+            return
+
+        text = "🚨 ANLIK HACİM ARTIŞI TESPİT EDİLDİ\n\n"
+
+        for coin in alerts:
+            text += (
+                f"🪙 {coin['symbol']} - {coin['name']}\n"
+                f"💰 Fiyat: ${coin['price']:,.4f}\n"
+                f"📈 24s Değişim: %{coin['change']:.2f}\n"
+                f"📊 Hacim Artışı: +${coin['diff']:,.0f}\n"
+                f"🔥 Artış Oranı: %{coin['spike_percent']:.2f}\n\n"
+            )
+
+        text += "⚠️ Bu finansal tavsiye değildir."
+
+        await context.bot.send_message(chat_id=chat_id, text=text)
+
+    except Exception as e:
+        await context.bot.send_message(chat_id=chat_id, text=f"Volume spike hatası:\n{e}")
+
+
+async def volume_spike_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    for job in context.job_queue.get_jobs_by_name(f"volume_spike_{chat_id}"):
+        job.schedule_removal()
+
+    context.job_queue.run_repeating(
+        volume_spike_scan,
+        interval=300,
+        first=10,
+        chat_id=chat_id,
+        name=f"volume_spike_{chat_id}"
+    )
+
+    await update.message.reply_text(
+        "✅ Anlık hacim artışı tarayıcısı açıldı.\n\n"
+        "Bot her 5 dakikada bir hacim artışlarını tarayacak."
+    )
+
+
+async def volume_spike_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"volume_spike_{chat_id}")
+
+    if not jobs:
+        await update.message.reply_text("Aktif hacim artışı tarayıcısı yok.")
+        return
+
+    for job in jobs:
+        job.schedule_removal()
+
+    await update.message.reply_text("🛑 Anlık hacim artışı tarayıcısı kapatıldı.")
 
 
 async def auto_scan(context: ContextTypes.DEFAULT_TYPE):
@@ -393,6 +502,8 @@ def main():
     app.add_handler(CommandHandler("alarm_off", alarm_off))
     app.add_handler(CommandHandler("trending", trending))
     app.add_handler(CommandHandler("smart", smart))
+    app.add_handler(CommandHandler("volume_spike_on", volume_spike_on))
+    app.add_handler(CommandHandler("volume_spike_off", volume_spike_off))
 
     print("✅ Bot çalışıyor...")
     app.run_polling()
