@@ -223,6 +223,87 @@ async def trending(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"Hata:\n{e}")
+async def smart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        data = fetch_markets(order="volume_desc", per_page=100)
+
+        signals = []
+
+        for coin in data:
+            change = coin.get("price_change_percentage_24h")
+            volume = coin.get("total_volume")
+            market_cap_rank = coin.get("market_cap_rank")
+            price = coin.get("current_price")
+
+            if change is None or volume is None or market_cap_rank is None:
+                continue
+
+            if volume < 50_000_000:
+                continue
+
+            score = 0
+
+            if change > 3:
+                score += 2
+            if change > 7:
+                score += 3
+            if change > 12:
+                score += 2
+
+            if volume > 100_000_000:
+                score += 2
+            if volume > 500_000_000:
+                score += 2
+            if volume > 1_000_000_000:
+                score += 2
+
+            if market_cap_rank <= 100:
+                score += 2
+            if market_cap_rank <= 50:
+                score += 1
+
+            if change > 0 and volume > 100_000_000:
+                score += 2
+
+            if score >= 7:
+                signals.append({
+                    "symbol": coin["symbol"].upper(),
+                    "name": coin["name"],
+                    "price": price,
+                    "change": change,
+                    "volume": volume,
+                    "rank": market_cap_rank,
+                    "score": score
+                })
+
+        signals = sorted(
+            signals,
+            key=lambda x: x["score"],
+            reverse=True
+        )[:10]
+
+        if not signals:
+            await update.message.reply_text("Şu an güçlü akıllı sinyal bulunamadı.")
+            return
+
+        text = "🧠 AKILLI SİNYAL TARAMASI\n\n"
+
+        for i, coin in enumerate(signals, start=1):
+            text += (
+                f"{i}. 🪙 {coin['symbol']} - {coin['name']}\n"
+                f"💰 Fiyat: ${coin['price']:,.4f}\n"
+                f"📈 24s Değişim: %{coin['change']:.2f}\n"
+                f"📊 Hacim: ${coin['volume']:,.0f}\n"
+                f"🏆 Rank: {coin['rank']}\n"
+                f"⭐ Sinyal Skoru: {coin['score']}/14\n\n"
+            )
+
+        text += "⚠️ Bu finansal tavsiye değildir."
+
+        await update.message.reply_text(text)
+
+    except Exception as e:
+        await update.message.reply_text(f"Hata:\n{e}")
 
 
 async def auto_scan(context: ContextTypes.DEFAULT_TYPE):
@@ -311,6 +392,7 @@ def main():
     app.add_handler(CommandHandler("alarm_on", alarm_on))
     app.add_handler(CommandHandler("alarm_off", alarm_off))
     app.add_handler(CommandHandler("trending", trending))
+    app.add_handler(CommandHandler("smart", smart))
 
     print("✅ Bot çalışıyor...")
     app.run_polling()
