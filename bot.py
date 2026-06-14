@@ -198,6 +198,32 @@ async def losers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Hata:\n{e}")
 
+async def trending(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        url = "https://api.coingecko.com/api/v3/search/trending"
+        data = requests.get(url, timeout=20).json()
+
+        coins = data.get("coins", [])[:10]
+
+        if not coins:
+            await update.message.reply_text("Trend coin bulunamadı.")
+            return
+
+        text = "🔥 TRENDING COINS\n\n"
+
+        for i, item in enumerate(coins, start=1):
+            coin = item["item"]
+
+            text += (
+                f"{i}. {coin['symbol'].upper()} - {coin['name']}\n"
+                f"Market Cap Rank: {coin.get('market_cap_rank', 'N/A')}\n\n"
+            )
+
+        await update.message.reply_text(text)
+
+    except Exception as e:
+        await update.message.reply_text(f"Hata:\n{e}")
+
 
 async def auto_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -284,6 +310,7 @@ def main():
     app.add_handler(CommandHandler("losers", losers))
     app.add_handler(CommandHandler("alarm_on", alarm_on))
     app.add_handler(CommandHandler("alarm_off", alarm_off))
+    app.add_handler(CommandHandler("trending", trending))
 
     print("✅ Bot çalışıyor...")
     app.run_polling()
