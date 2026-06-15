@@ -346,11 +346,11 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
             cooldown_seconds = 30 * 60
 
             if (
-                diff >= 50_000_000
-                and spike_percent >= 5
-                and change >= 3
-                and volume >= 100_000_000
-            ):
+               diff >= 20_000_000
+               and spike_percent >= 3
+               and change >= 2
+               and volume >= 50_000_000
+):
 
                 if now - last_alert_time >= cooldown_seconds:
 
@@ -377,7 +377,7 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
 
                     signal_score = min(signal_score, 10)
 
-                    if signal_score < 7:
+                    if signal_score < 5:
                         continue
 
                     if signal_score >= 8:
