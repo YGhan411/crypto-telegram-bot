@@ -12,6 +12,8 @@ whale_memory = {}
 whale_cooldown = {}
 whale_pro_memory = {}
 whale_pro_cooldown = {}
+whale_v2_memory = {}
+whale_v2_cooldown = {}
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable bulunamadı.")
@@ -61,6 +63,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/whale_pro_on\n"
         "/whale_pro_off\n"
         "/whale_pro_status\n"
+        "/whale_v2_on\n"
+        "/whale_v2_off\n"
+        "/whale_v2_status\n"
     )
 
 
@@ -734,6 +739,82 @@ def get_trending_symbols():
 
     except Exception:
         return set()
+def to_bybit_symbol(symbol):
+    return f"{symbol.upper()}USDT"
+
+
+def get_bybit_open_interest(symbol):
+    try:
+        url = "https://api.bybit.com/v5/market/open-interest"
+        params = {
+            "category": "linear",
+            "symbol": to_bybit_symbol(symbol),
+            "intervalTime": "5min",
+            "limit": 2
+        }
+
+        data = requests.get(url, params=params, timeout=20).json()
+
+        result = data.get("result", {})
+        items = result.get("list", [])
+
+        if len(items) < 2:
+            return None
+
+        latest = float(items[0]["openInterest"])
+        previous = float(items[1]["openInterest"])
+
+        if previous <= 0:
+            return None
+
+        change_percent = ((latest - previous) / previous) * 100
+
+        return {
+            "latest": latest,
+            "previous": previous,
+            "change_percent": change_percent
+        }
+
+    except Exception:
+        return None
+
+
+def get_bybit_long_short(symbol):
+    try:
+        url = "https://api.bybit.com/v5/market/account-ratio"
+        params = {
+            "category": "linear",
+            "symbol": to_bybit_symbol(symbol),
+            "period": "5min",
+            "limit": 1
+        }
+
+        data = requests.get(url, params=params, timeout=20).json()
+
+        result = data.get("result", {})
+        items = result.get("list", [])
+
+        if not items:
+            return None
+
+        item = items[0]
+
+        buy_ratio = float(item.get("buyRatio", 0))
+        sell_ratio = float(item.get("sellRatio", 0))
+
+        if sell_ratio <= 0:
+            return None
+
+        ratio = buy_ratio / sell_ratio
+
+        return {
+            "buy_ratio": buy_ratio,
+            "sell_ratio": sell_ratio,
+            "ratio": ratio
+        }
+
+    except Exception:
+        return None
 
 
 async def whale_pro_scan(context: ContextTypes.DEFAULT_TYPE):
@@ -949,6 +1030,258 @@ async def whale_pro_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(text)
+async def whale_v2_scan(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.chat_id
+
+    try:
+        global whale_v2_memory, whale_v2_cooldown
+
+        data = fetch_markets(order="volume_desc", per_page=50)
+        trending_symbols = get_trending_symbols()
+
+        alerts = []
+
+        for coin in data:
+            coin_id = coin["id"]
+            symbol = coin["symbol"].upper()
+            name = coin["name"]
+            price = coin["current_price"]
+            volume = coin["total_volume"]
+            change = coin.get("price_change_percentage_24h") or 0
+            market_cap_rank = coin.get("market_cap_rank") or 9999
+
+            if volume < 75_000_000:
+                continue
+
+            old_volume = whale_v2_memory.get(coin_id)
+            whale_v2_memory[coin_id] = volume
+
+            if old_volume is None or old_volume <= 0:
+                continue
+
+            diff = volume - old_volume
+            spike_percent = (diff / old_volume) * 100
+
+            if diff < 20_000_000 or spike_percent < 2 or change < 1:
+                continue
+
+            oi = get_bybit_open_interest(symbol)
+            long_short = get_bybit_long_short(symbol)
+
+            now = time.time()
+            last_alert_time = whale_v2_cooldown.get(coin_id, 0)
+            cooldown_seconds = 45 * 60
+
+            if now - last_alert_time < cooldown_seconds:
+                continue
+
+            score = 0
+            reasons = []
+
+            if diff >= 20_000_000:
+                score += 1
+                reasons.append("Hacim girişi")
+            if diff >= 75_000_000:
+                score += 2
+                reasons.append("Yüksek hacim girişi")
+            if diff >= 150_000_000:
+                score += 2
+                reasons.append("Dev hacim girişi")
+
+            if spike_percent >= 2:
+                score += 1
+            if spike_percent >= 5:
+                score += 2
+                reasons.append("Hacim ivmesi güçlü")
+            if spike_percent >= 10:
+                score += 2
+                reasons.append("Hacim patlaması")
+
+            if change >= 1:
+                score += 1
+            if change >= 3:
+                score += 1
+                reasons.append("Fiyat yukarı hareketli")
+            if change >= 7:
+                score += 2
+                reasons.append("Güçlü fiyat momentumu")
+
+            oi_text = "Yok"
+            oi_change = None
+
+            if oi is not None:
+                oi_change = oi["change_percent"]
+                oi_text = f"%{oi_change:.2f}"
+
+                if oi_change >= 1:
+                    score += 1
+                    reasons.append("Open Interest artıyor")
+                if oi_change >= 3:
+                    score += 2
+                    reasons.append("OI güçlü artıyor")
+                if oi_change >= 6:
+                    score += 2
+                    reasons.append("OI patlaması")
+
+            ls_text = "Yok"
+
+            if long_short is not None:
+                ls_ratio = long_short["ratio"]
+                ls_text = f"{ls_ratio:.2f}"
+
+                if ls_ratio >= 1.2:
+                    score += 1
+                    reasons.append("Long tarafı baskın")
+                if ls_ratio >= 1.5:
+                    score += 2
+                    reasons.append("Long/Short güçlü")
+                if ls_ratio >= 2:
+                    score += 2
+                    reasons.append("Aşırı long ilgisi")
+
+            if symbol in trending_symbols:
+                score += 2
+                reasons.append("Trending listesinde")
+
+            if market_cap_rank <= 100:
+                score += 1
+            if market_cap_rank <= 50:
+                score += 1
+
+            score = min(score, 10)
+
+            if score < 6:
+                continue
+
+            if score >= 9:
+                status = "Çok Güçlü Whale Pro v2 Sinyali"
+            elif score >= 7:
+                status = "Güçlü Whale Pro v2 Sinyali"
+            else:
+                status = "Orta Güçte Whale Pro v2 Sinyali"
+
+            alerts.append({
+                "symbol": symbol,
+                "name": name,
+                "price": price,
+                "volume": volume,
+                "diff": diff,
+                "spike_percent": spike_percent,
+                "change": change,
+                "rank": market_cap_rank,
+                "score": score,
+                "status": status,
+                "reasons": reasons[:5],
+                "oi_text": oi_text,
+                "ls_text": ls_text
+            })
+
+            whale_v2_cooldown[coin_id] = now
+
+        alerts = sorted(
+            alerts,
+            key=lambda x: x["score"],
+            reverse=True
+        )[:5]
+
+        if not alerts:
+            return
+
+        text = "🐋🚀 WHALE PRO V2 SİNYALİ\n\n"
+
+        for coin in alerts:
+            reasons_text = ", ".join(coin["reasons"]) if coin["reasons"] else "Hacim + momentum"
+
+            text += (
+                f"🪙 {coin['symbol']} - {coin['name']}\n"
+                f"💰 Fiyat: ${coin['price']:,.4f}\n"
+                f"📈 24s Değişim: %{coin['change']:.2f}\n"
+                f"📊 Hacim Girişi: +${coin['diff']:,.0f}\n"
+                f"🔥 Hacim Artış Oranı: %{coin['spike_percent']:.2f}\n"
+                f"📈 Open Interest Değişimi: {coin['oi_text']}\n"
+                f"⚖️ Long/Short Ratio: {coin['ls_text']}\n"
+                f"🏆 Rank: {coin['rank']}\n"
+                f"🐋 Whale Pro v2 Skoru: {coin['score']}/10\n"
+                f"📌 Durum: {coin['status']}\n"
+                f"🧠 Sebep: {reasons_text}\n\n"
+            )
+
+        text += "⚠️ Bu kesin balina alımı değildir; hacim, momentum, trend ve türev piyasa verilerine göre olası büyük alım sinyalidir."
+
+        await context.bot.send_message(chat_id=chat_id, text=text)
+
+    except Exception as e:
+        await context.bot.send_message(chat_id=chat_id, text=f"Whale Pro v2 hatası:\n{e}")
+
+
+async def whale_v2_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global whale_v2_memory
+
+    chat_id = update.effective_chat.id
+
+    for job in context.job_queue.get_jobs_by_name(f"whale_v2_{chat_id}"):
+        job.schedule_removal()
+
+    try:
+        data = fetch_markets(order="volume_desc", per_page=50)
+
+        for coin in data:
+            whale_v2_memory[coin["id"]] = coin["total_volume"]
+
+        memory_count = len(whale_v2_memory)
+
+    except Exception as e:
+        await update.message.reply_text(f"Whale Pro v2 hafızası oluşturulamadı:\n{e}")
+        return
+
+    context.job_queue.run_repeating(
+        whale_v2_scan,
+        interval=300,
+        first=300,
+        chat_id=chat_id,
+        name=f"whale_v2_{chat_id}"
+    )
+
+    await update.message.reply_text(
+        "✅ Whale Pro v2 tarayıcısı açıldı.\n\n"
+        f"📊 Hafızaya alınan coin sayısı: {memory_count}\n"
+        "Bot her 5 dakikada bir hacim + momentum + trend + Open Interest + Long/Short kontrolü yapacak."
+    )
+
+
+async def whale_v2_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"whale_v2_{chat_id}")
+
+    if not jobs:
+        await update.message.reply_text("Aktif Whale Pro v2 tarayıcısı yok.")
+        return
+
+    for job in jobs:
+        job.schedule_removal()
+
+    await update.message.reply_text("🛑 Whale Pro v2 tarayıcısı kapatıldı.")
+
+
+async def whale_v2_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"whale_v2_{chat_id}")
+
+    status = "🟢 Aktif" if jobs else "🔴 Kapalı"
+
+    text = (
+        "🐋🚀 WHALE PRO V2 DURUMU\n\n"
+        f"Durum: {status}\n"
+        f"📊 Hafızadaki Coin: {len(whale_v2_memory)}\n"
+        f"⏳ Cooldown'daki Coin: {len(whale_v2_cooldown)}\n"
+        f"🔄 Tarama Aralığı: 5 Dakika\n"
+        f"🛡️ Cooldown Süresi: 45 Dakika\n"
+        f"🧠 Ek Filtre: Volume + Momentum + Trending + OI + Long/Short"
+    )
+
+    await update.message.reply_text(text)
 
 async def auto_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -1047,6 +1380,9 @@ def main():
     app.add_handler(CommandHandler("whale_pro_on", whale_pro_on))
     app.add_handler(CommandHandler("whale_pro_off", whale_pro_off))
     app.add_handler(CommandHandler("whale_pro_status", whale_pro_status))
+    app.add_handler(CommandHandler("whale_v2_on", whale_v2_on))
+    app.add_handler(CommandHandler("whale_v2_off", whale_v2_off))
+    app.add_handler(CommandHandler("whale_v2_status", whale_v2_status))
 
 
     print("✅ Bot çalışıyor...")
