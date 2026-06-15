@@ -309,11 +309,11 @@ async def smart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Hata:\n{e}")
 async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
-    async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
 
     try:
         global volume_memory, volume_cooldown
+
 
         data = fetch_markets(order="volume_desc", per_page=100)
 
