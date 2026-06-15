@@ -309,14 +309,13 @@ async def smart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Hata:\n{e}")
 async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
+  async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
 
     try:
         global volume_memory, volume_cooldown
 
-
         data = fetch_markets(order="volume_desc", per_page=100)
-
         alerts = []
 
         for coin in data:
@@ -339,7 +338,7 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
             diff = volume - old_volume
             spike_percent = (diff / old_volume) * 100
 
-                        now = time.time()
+            now = time.time()
             last_alert_time = volume_cooldown.get(coin_id, 0)
             cooldown_seconds = 30 * 60
 
@@ -349,22 +348,23 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
                 and change >= 3
                 and volume >= 100_000_000
             ):
-                if now - last_alert_time >= cooldown_seconds:
-                    signal_score = 0
-                    ...
 
-                    if spike_percent >= 3:
-                        signal_score += 2
-                    if spike_percent >= 6:
+                if now - last_alert_time >= cooldown_seconds:
+
+                    signal_score = 0
+
+                    if spike_percent >= 5:
                         signal_score += 2
                     if spike_percent >= 10:
                         signal_score += 2
-
-                    if diff >= 10_000_000:
-                        signal_score += 1
-                    if diff >= 50_000_000:
+                    if spike_percent >= 20:
                         signal_score += 2
+
+                    if diff >= 50_000_000:
+                        signal_score += 1
                     if diff >= 100_000_000:
+                        signal_score += 2
+                    if diff >= 250_000_000:
                         signal_score += 2
 
                     if change >= 3:
@@ -374,16 +374,14 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
 
                     signal_score = min(signal_score, 10)
 
+                    if signal_score < 7:
+                        continue
+
                     if signal_score >= 8:
                         signal_status = "Çok Güçlü"
-                    elif signal_score >= 6:
-                        signal_status = "Güçlü"
-                    elif signal_score >= 4:
-                        signal_status = "Orta"
                     else:
-                        signal_status = "Zayıf"
-                    if signal_score < 7:
-                    continue
+                        signal_status = "Güçlü"
+
                     alerts.append({
                         "symbol": symbol,
                         "name": name,
@@ -400,14 +398,14 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
 
         alerts = sorted(
             alerts,
-            key=lambda x: x["spike_percent"],
+            key=lambda x: x["signal_score"],
             reverse=True
         )[:5]
 
         if not alerts:
             return
 
-        text = "🚨 ANLIK HACİM ARTIŞI TESPİT EDİLDİ\n\n"
+        text = "🚨 GÜÇLÜ HACİM SİNYALİ\n\n"
 
         for coin in alerts:
             text += (
@@ -422,10 +420,16 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
 
         text += "⚠️ Bu finansal tavsiye değildir."
 
-        await context.bot.send_message(chat_id=chat_id, text=text)
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=text
+        )
 
     except Exception as e:
-        await context.bot.send_message(chat_id=chat_id, text=f"Volume spike hatası:\n{e}")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"Volume spike hatası:\n{e}"
+        )
 
 async def volume_spike_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
