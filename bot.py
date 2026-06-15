@@ -339,13 +339,19 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
             diff = volume - old_volume
             spike_percent = (diff / old_volume) * 100
 
-            now = time.time()
+                        now = time.time()
             last_alert_time = volume_cooldown.get(coin_id, 0)
             cooldown_seconds = 30 * 60
 
-            if diff > 10_000_000 and spike_percent >= 3:
+            if (
+                diff >= 50_000_000
+                and spike_percent >= 5
+                and change >= 3
+                and volume >= 100_000_000
+            ):
                 if now - last_alert_time >= cooldown_seconds:
                     signal_score = 0
+                    ...
 
                     if spike_percent >= 3:
                         signal_score += 2
@@ -376,7 +382,8 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
                         signal_status = "Orta"
                     else:
                         signal_status = "Zayıf"
-
+                    if signal_score < 7:
+                    continue
                     alerts.append({
                         "symbol": symbol,
                         "name": name,
