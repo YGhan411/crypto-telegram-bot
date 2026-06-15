@@ -115,6 +115,9 @@ async def topvolume(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         data = fetch_markets(order="volume_desc", per_page=100)
+        print(f"Volume Scanner: {len(data)} coin çekildi")
+        
+        alerts = []
 
         candidates = [
             coin for coin in data
