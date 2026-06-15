@@ -452,6 +452,7 @@ async def volume_spike_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def volume_spike_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     chat_id = update.effective_chat.id
 
     jobs = context.job_queue.get_jobs_by_name(f"volume_spike_{chat_id}")
@@ -465,6 +466,29 @@ async def volume_spike_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("🛑 Anlık hacim artışı tarayıcısı kapatıldı.")
 
+
+async def volume_spike_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(
+        f"volume_spike_{chat_id}"
+    )
+
+    status = "🟢 Aktif" if jobs else "🔴 Kapalı"
+
+    memory_count = len(volume_memory)
+    cooldown_count = len(volume_cooldown)
+
+    text = (
+        "📡 VOLUME SPIKE DURUMU\n\n"
+        f"Durum: {status}\n"
+        f"📊 Hafızadaki Coin: {memory_count}\n"
+        f"⏳ Cooldown'daki Coin: {cooldown_count}\n"
+        f"🔄 Tarama Aralığı: 5 Dakika\n"
+        f"🛡️ Cooldown Süresi: 30 Dakika"
+    )
+
+    await update.message.reply_text(text)
 
 async def auto_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -555,6 +579,8 @@ def main():
     app.add_handler(CommandHandler("smart", smart))
     app.add_handler(CommandHandler("volume_spike_on", volume_spike_on))
     app.add_handler(CommandHandler("volume_spike_off", volume_spike_off))
+    app.add_handler(CommandHandler("volume_spike_status", volume_spike_status))
+
 
     print("✅ Bot çalışıyor...")
     app.run_polling()
