@@ -435,7 +435,6 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def volume_spike_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async def volume_spike_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global volume_memory
 
     chat_id = update.effective_chat.id
