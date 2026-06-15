@@ -435,21 +435,38 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def volume_spike_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def volume_spike_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global volume_memory
+
     chat_id = update.effective_chat.id
 
     for job in context.job_queue.get_jobs_by_name(f"volume_spike_{chat_id}"):
         job.schedule_removal()
 
+    # İlk açılışta hafızayı hemen doldur
+    try:
+        data = fetch_markets(order="volume_desc", per_page=100)
+
+        for coin in data:
+            volume_memory[coin["id"]] = coin["total_volume"]
+
+        memory_count = len(volume_memory)
+
+    except Exception as e:
+        await update.message.reply_text(f"İlk hacim hafızası oluşturulamadı:\n{e}")
+        return
+
     context.job_queue.run_repeating(
         volume_spike_scan,
         interval=300,
-        first=10,
+        first=300,
         chat_id=chat_id,
         name=f"volume_spike_{chat_id}"
     )
 
     await update.message.reply_text(
         "✅ Anlık hacim artışı tarayıcısı açıldı.\n\n"
+        f"📊 Hafızaya alınan coin sayısı: {memory_count}\n"
         "Bot her 5 dakikada bir hacim artışlarını tarayacak."
     )
 
