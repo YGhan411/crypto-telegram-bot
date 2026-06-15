@@ -309,6 +309,7 @@ async def smart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Hata:\n{e}")
 async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
+    async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
 
     try:
@@ -330,69 +331,65 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
                 continue
 
             old_volume = volume_memory.get(coin_id)
-
             volume_memory[coin_id] = volume
 
-            if old_volume is None:
+            if old_volume is None or old_volume <= 0:
                 continue
 
             diff = volume - old_volume
-
-            if old_volume <= 0:
-                continue
-
             spike_percent = (diff / old_volume) * 100
 
             now = time.time()
-last_alert_time = volume_cooldown.get(coin_id, 0)
-cooldown_seconds = 30 * 60  # 30 dakika
+            last_alert_time = volume_cooldown.get(coin_id, 0)
+            cooldown_seconds = 30 * 60
 
-if diff > 10_000_000 and spike_percent >= 3:
-    if now - last_alert_time >= cooldown_seconds:
-        signal_score = 0
+            if diff > 10_000_000 and spike_percent >= 3:
+                if now - last_alert_time >= cooldown_seconds:
+                    signal_score = 0
 
-if spike_percent >= 3:
-    signal_score += 2
-if spike_percent >= 6:
-    signal_score += 2
-if spike_percent >= 10:
-    signal_score += 2
+                    if spike_percent >= 3:
+                        signal_score += 2
+                    if spike_percent >= 6:
+                        signal_score += 2
+                    if spike_percent >= 10:
+                        signal_score += 2
 
-if diff >= 10_000_000:
-    signal_score += 1
-if diff >= 50_000_000:
-    signal_score += 2
-if diff >= 100_000_000:
-    signal_score += 2
+                    if diff >= 10_000_000:
+                        signal_score += 1
+                    if diff >= 50_000_000:
+                        signal_score += 2
+                    if diff >= 100_000_000:
+                        signal_score += 2
 
-if change >= 3:
-    signal_score += 1
-if change >= 7:
-    signal_score += 2
+                    if change >= 3:
+                        signal_score += 1
+                    if change >= 7:
+                        signal_score += 2
 
-signal_score = min(signal_score, 10)
+                    signal_score = min(signal_score, 10)
 
-if signal_score >= 8:
-    signal_status = "Çok Güçlü"
-elif signal_score >= 6:
-    signal_status = "Güçlü"
-elif signal_score >= 4:
-    signal_status = "Orta"
-else:
-    signal_status = "Zayıf"
+                    if signal_score >= 8:
+                        signal_status = "Çok Güçlü"
+                    elif signal_score >= 6:
+                        signal_status = "Güçlü"
+                    elif signal_score >= 4:
+                        signal_status = "Orta"
+                    else:
+                        signal_status = "Zayıf"
 
-alerts.append({
-    "symbol": symbol,
-    "name": name,
-    "price": price,
-    "volume": volume,
-    "diff": diff,
-    "spike_percent": spike_percent,
-    "change": change,
-    "signal_score": signal_score,
-    "signal_status": signal_status
-})
-        volume_cooldown[coin_id] = now
+                    alerts.append({
+                        "symbol": symbol,
+                        "name": name,
+                        "price": price,
+                        "volume": volume,
+                        "diff": diff,
+                        "spike_percent": spike_percent,
+                        "change": change,
+                        "signal_score": signal_score,
+                        "signal_status": signal_status
+                    })
+
+                    volume_cooldown[coin_id] = now
 
         alerts = sorted(
             alerts,
@@ -412,8 +409,8 @@ alerts.append({
                 f"📈 24s Değişim: %{coin['change']:.2f}\n"
                 f"📊 Hacim Artışı: +${coin['diff']:,.0f}\n"
                 f"🔥 Artış Oranı: %{coin['spike_percent']:.2f}\n"
-f"⭐ Sinyal Gücü: {coin['signal_score']}/10\n"
-f"📌 Durum: {coin['signal_status']}\n\n"
+                f"⭐ Sinyal Gücü: {coin['signal_score']}/10\n"
+                f"📌 Durum: {coin['signal_status']}\n\n"
             )
 
         text += "⚠️ Bu finansal tavsiye değildir."
@@ -422,7 +419,6 @@ f"📌 Durum: {coin['signal_status']}\n\n"
 
     except Exception as e:
         await context.bot.send_message(chat_id=chat_id, text=f"Volume spike hatası:\n{e}")
-
 
 async def volume_spike_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
