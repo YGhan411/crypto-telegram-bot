@@ -10,6 +10,8 @@ volume_memory = {}
 volume_cooldown = {}
 whale_memory = {}
 whale_cooldown = {}
+whale_pro_memory = {}
+whale_pro_cooldown = {}
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable bulunamadı.")
@@ -56,6 +58,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/whale_on\n"
         "/whale_off\n"
         "/whale_status\n"
+        "/whale_pro_on\n"
+        "/whale_pro_off\n"
+        "/whale_pro_status\n"
     )
 
 
@@ -711,6 +716,239 @@ async def whale_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(text)
+def get_trending_symbols():
+    try:
+        url = "https://api.coingecko.com/api/v3/search/trending"
+        data = requests.get(url, timeout=20).json()
+
+        symbols = set()
+
+        for item in data.get("coins", []):
+            coin = item.get("item", {})
+            symbol = coin.get("symbol")
+
+            if symbol:
+                symbols.add(symbol.upper())
+
+        return symbols
+
+    except Exception:
+        return set()
+
+
+async def whale_pro_scan(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.chat_id
+
+    try:
+        global whale_pro_memory, whale_pro_cooldown
+
+        data = fetch_markets(order="volume_desc", per_page=100)
+        trending_symbols = get_trending_symbols()
+
+        alerts = []
+
+        for coin in data:
+            coin_id = coin["id"]
+            symbol = coin["symbol"].upper()
+            name = coin["name"]
+            price = coin["current_price"]
+            volume = coin["total_volume"]
+            change = coin.get("price_change_percentage_24h") or 0
+            market_cap_rank = coin.get("market_cap_rank") or 9999
+
+            if volume < 75_000_000:
+                continue
+
+            old_volume = whale_pro_memory.get(coin_id)
+            whale_pro_memory[coin_id] = volume
+
+            if old_volume is None or old_volume <= 0:
+                continue
+
+            diff = volume - old_volume
+            spike_percent = (diff / old_volume) * 100
+
+            now = time.time()
+            last_alert_time = whale_pro_cooldown.get(coin_id, 0)
+            cooldown_seconds = 45 * 60
+
+            if (
+                diff >= 30_000_000
+                and spike_percent >= 3
+                and change >= 2
+                and volume >= 75_000_000
+            ):
+                if now - last_alert_time >= cooldown_seconds:
+                    score = 0
+                    reasons = []
+
+                    if diff >= 30_000_000:
+                        score += 1
+                        reasons.append("Yüksek hacim girişi")
+                    if diff >= 75_000_000:
+                        score += 2
+                        reasons.append("Çok yüksek hacim girişi")
+                    if diff >= 150_000_000:
+                        score += 2
+                        reasons.append("Dev hacim girişi")
+
+                    if spike_percent >= 3:
+                        score += 1
+                    if spike_percent >= 6:
+                        score += 2
+                        reasons.append("Hacim ivmesi güçlü")
+                    if spike_percent >= 10:
+                        score += 2
+                        reasons.append("Hacim patlaması")
+
+                    if change >= 2:
+                        score += 1
+                    if change >= 5:
+                        score += 2
+                        reasons.append("Fiyat momentumlu")
+                    if change >= 10:
+                        score += 2
+                        reasons.append("Güçlü fiyat hareketi")
+
+                    if symbol in trending_symbols:
+                        score += 2
+                        reasons.append("Trending listesinde")
+
+                    if market_cap_rank <= 100:
+                        score += 1
+                    if market_cap_rank <= 50:
+                        score += 1
+
+                    score = min(score, 10)
+
+                    if score < 6:
+                        continue
+
+                    if score >= 9:
+                        status = "Çok Güçlü Whale Pro Sinyali"
+                    elif score >= 7:
+                        status = "Güçlü Whale Pro Sinyali"
+                    else:
+                        status = "Orta Güçte Whale Pro Sinyali"
+
+                    alerts.append({
+                        "symbol": symbol,
+                        "name": name,
+                        "price": price,
+                        "volume": volume,
+                        "diff": diff,
+                        "spike_percent": spike_percent,
+                        "change": change,
+                        "rank": market_cap_rank,
+                        "score": score,
+                        "status": status,
+                        "reasons": reasons[:4]
+                    })
+
+                    whale_pro_cooldown[coin_id] = now
+
+        alerts = sorted(
+            alerts,
+            key=lambda x: x["score"],
+            reverse=True
+        )[:5]
+
+        if not alerts:
+            return
+
+        text = "🐋🚀 WHALE PRO SİNYALİ\n\n"
+
+        for coin in alerts:
+            reasons_text = ", ".join(coin["reasons"]) if coin["reasons"] else "Standart hacim + momentum"
+
+            text += (
+                f"🪙 {coin['symbol']} - {coin['name']}\n"
+                f"💰 Fiyat: ${coin['price']:,.4f}\n"
+                f"📈 24s Değişim: %{coin['change']:.2f}\n"
+                f"📊 Hacim Girişi: +${coin['diff']:,.0f}\n"
+                f"🔥 Hacim Artış Oranı: %{coin['spike_percent']:.2f}\n"
+                f"🏆 Rank: {coin['rank']}\n"
+                f"🐋 Whale Pro Skoru: {coin['score']}/10\n"
+                f"📌 Durum: {coin['status']}\n"
+                f"🧠 Sebep: {reasons_text}\n\n"
+            )
+
+        text += "⚠️ Bu kesin balina alımı değildir; hacim, momentum ve trend verilerine göre olası büyük alım sinyalidir."
+
+        await context.bot.send_message(chat_id=chat_id, text=text)
+
+    except Exception as e:
+        await context.bot.send_message(chat_id=chat_id, text=f"Whale Pro hatası:\n{e}")
+
+
+async def whale_pro_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global whale_pro_memory
+
+    chat_id = update.effective_chat.id
+
+    for job in context.job_queue.get_jobs_by_name(f"whale_pro_{chat_id}"):
+        job.schedule_removal()
+
+    try:
+        data = fetch_markets(order="volume_desc", per_page=100)
+
+        for coin in data:
+            whale_pro_memory[coin["id"]] = coin["total_volume"]
+
+        memory_count = len(whale_pro_memory)
+
+    except Exception as e:
+        await update.message.reply_text(f"Whale Pro hafızası oluşturulamadı:\n{e}")
+        return
+
+    context.job_queue.run_repeating(
+        whale_pro_scan,
+        interval=300,
+        first=300,
+        chat_id=chat_id,
+        name=f"whale_pro_{chat_id}"
+    )
+
+    await update.message.reply_text(
+        "✅ Whale Pro tarayıcısı açıldı.\n\n"
+        f"📊 Hafızaya alınan coin sayısı: {memory_count}\n"
+        "Bot her 5 dakikada bir hacim + momentum + trend kontrolü yapacak."
+    )
+
+
+async def whale_pro_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"whale_pro_{chat_id}")
+
+    if not jobs:
+        await update.message.reply_text("Aktif Whale Pro tarayıcısı yok.")
+        return
+
+    for job in jobs:
+        job.schedule_removal()
+
+    await update.message.reply_text("🛑 Whale Pro tarayıcısı kapatıldı.")
+
+
+async def whale_pro_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"whale_pro_{chat_id}")
+
+    status = "🟢 Aktif" if jobs else "🔴 Kapalı"
+
+    text = (
+        "🐋🚀 WHALE PRO DURUMU\n\n"
+        f"Durum: {status}\n"
+        f"📊 Hafızadaki Coin: {len(whale_pro_memory)}\n"
+        f"⏳ Cooldown'daki Coin: {len(whale_pro_cooldown)}\n"
+        f"🔄 Tarama Aralığı: 5 Dakika\n"
+        f"🛡️ Cooldown Süresi: 45 Dakika\n"
+        f"🧠 Ek Filtre: Trending + Momentum + Hacim"
+    )
+
+    await update.message.reply_text(text)
 
 async def auto_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -806,6 +1044,9 @@ def main():
     app.add_handler(CommandHandler("whale_on", whale_on))
     app.add_handler(CommandHandler("whale_off", whale_off))
     app.add_handler(CommandHandler("whale_status", whale_status))
+    app.add_handler(CommandHandler("whale_pro_on", whale_pro_on))
+    app.add_handler(CommandHandler("whale_pro_off", whale_pro_off))
+    app.add_handler(CommandHandler("whale_pro_status", whale_pro_status))
 
 
     print("✅ Bot çalışıyor...")
