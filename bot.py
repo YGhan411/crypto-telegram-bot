@@ -50,6 +50,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/losers\n"
         "/alarm_on\n"
         "/alarm_off"
+        "/settings\n"
     )
 
 
@@ -508,6 +509,23 @@ async def volume_spike_status(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
     await update.message.reply_text(text)
+async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (
+        "⚙️ BOT AYARLARI\n\n"
+        "📊 Minimum Toplam Hacim: $50M\n"
+        "📈 Minimum Hacim Artışı: $20M\n"
+        "🔥 Minimum Artış Oranı: %3\n"
+        "💹 Minimum 24s Fiyat Değişimi: %2\n"
+        "⭐ Minimum Sinyal Skoru: 5/10\n"
+        "⏳ Cooldown Süresi: 30 dakika\n"
+        "🔄 Tarama Aralığı: 5 dakika\n\n"
+        "Aktif komutlar:\n"
+        "/volume_spike_on\n"
+        "/volume_spike_off\n"
+        "/volume_spike_status"
+    )
+
+    await update.message.reply_text(text)
 
 async def auto_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -599,6 +617,7 @@ def main():
     app.add_handler(CommandHandler("volume_spike_on", volume_spike_on))
     app.add_handler(CommandHandler("volume_spike_off", volume_spike_off))
     app.add_handler(CommandHandler("volume_spike_status", volume_spike_status))
+    app.add_handler(CommandHandler("settings", settings))
 
 
     print("✅ Bot çalışıyor...")
