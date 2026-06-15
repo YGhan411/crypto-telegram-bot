@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -6,6 +7,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 volume_memory = {}
+volume_cooldown = {}
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable bulunamadı.")
@@ -310,7 +312,7 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
 
     try:
-        global volume_memory
+       global volume_memory, volume_cooldown
 
         data = fetch_markets(order="volume_desc", per_page=100)
 
@@ -341,16 +343,23 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
 
             spike_percent = (diff / old_volume) * 100
 
-            if diff > 10_000_000 and spike_percent >= 3:
-                alerts.append({
-                    "symbol": symbol,
-                    "name": name,
-                    "price": price,
-                    "volume": volume,
-                    "diff": diff,
-                    "spike_percent": spike_percent,
-                    "change": change
-                })
+            now = time.time()
+last_alert_time = volume_cooldown.get(coin_id, 0)
+cooldown_seconds = 30 * 60  # 30 dakika
+
+if diff > 10_000_000 and spike_percent >= 3:
+    if now - last_alert_time >= cooldown_seconds:
+        alerts.append({
+            "symbol": symbol,
+            "name": name,
+            "price": price,
+            "volume": volume,
+            "diff": diff,
+            "spike_percent": spike_percent,
+            "change": change
+        })
+
+        volume_cooldown[coin_id] = now
 
         alerts = sorted(
             alerts,
