@@ -978,6 +978,38 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sr = calculate_support_resistance(prices)
         support = sr["support"]
         resistance = sr["resistance"]
+        fib = calculate_fibonacci_levels(prices)
+
+        if fib is None:
+            fib = {
+                "swing_low": support,
+                "swing_high": resistance,
+                "fib_236": resistance,
+                "fib_382": resistance,
+                "fib_500": current_price,
+                "fib_618": support,
+                "fib_786": support
+            }
+
+        fibo_comment = "Nötr"
+        fibo_zone = "Nötr"
+
+        if current_price <= fib["fib_618"]:
+            fibo_comment = "0.618 bölgesine yakın, pullback fırsatı olabilir."
+        elif current_price <= fib["fib_500"]:
+            fibo_comment = "0.500 bölgesinde, destek aranabilir."
+        elif current_price >= fib["fib_382"]:
+            fibo_comment = "Yukarı momentum güçlü."
+
+        distance_618 = abs(current_price - fib["fib_618"]) / current_price
+        distance_500 = abs(current_price - fib["fib_500"]) / current_price
+
+        if distance_618 <= 0.01:
+            fibo_zone = "🟢 0.618 Golden Zone"
+        elif distance_500 <= 0.01:
+            fibo_zone = "🟡 0.500 Re-test Zone"
+        elif current_price > fib["fib_236"]:
+            fibo_zone = "🚀 Fibo Üst Momentum Bölgesi"
         setup_type = detect_setup_type(
             rsi,
             ema20,
