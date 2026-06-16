@@ -682,15 +682,33 @@ async def ta_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(text)
-def calculate_trade_levels(price, direction):
+def calculate_atr_from_prices(prices, period=14):
+    if len(prices) < period + 1:
+        return None
+
+    ranges = []
+
+    for i in range(1, period + 1):
+        ranges.append(abs(prices[-i] - prices[-i - 1]))
+
+    atr = sum(ranges) / period
+    return atr
+
+
+def calculate_trade_levels(price, direction, prices):
+    atr = calculate_atr_from_prices(prices)
+
+    if atr is None:
+        atr = price * 0.02
+
     if direction == "LONG":
-        stop = price * 0.97
-        target1 = price * 1.03
-        target2 = price * 1.06
+        stop = price - (atr * 1.5)
+        target1 = price + (atr * 2)
+        target2 = price + (atr * 3)
     else:
-        stop = price * 1.03
-        target1 = price * 0.97
-        target2 = price * 0.94
+        stop = price + (atr * 1.5)
+        target1 = price - (atr * 2)
+        target2 = price - (atr * 3)
 
     risk = abs(price - stop)
     reward = abs(target2 - price)
@@ -698,6 +716,7 @@ def calculate_trade_levels(price, direction):
     rr = reward / risk if risk > 0 else 0
 
     return {
+        "atr": atr,
         "stop": stop,
         "target1": target1,
         "target2": target2,
@@ -789,7 +808,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         levels = calculate_trade_levels(
             current_price,
-            direction
+            direction,prices
         )
 
         reasons_text = "\n".join(
@@ -808,6 +827,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"${levels['target2']:,.4f}\n"
             f"🛑 Stop: "
             f"${levels['stop']:,.4f}\n\n"
+            f"📏 ATR: ${levels['atr']:,.4f}\n"
             f"📊 Risk/Ödül: "
             f"1:{levels['rr']:.2f}\n"
             f"⭐ İşlem Skoru: {score}/10\n\n"
