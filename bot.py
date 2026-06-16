@@ -803,6 +803,38 @@ def calculate_institutional_flow(volume, change_24h, score, rr):
         return "🟡 Orta"
     else:
         return "🔴 Düşük"
+def analyze_timeframe_trend(prices):
+    if len(prices) < 50:
+        return "⚪ Veri Yok"
+
+    ema20 = calculate_ema(prices, 20)
+    ema50 = calculate_ema(prices, 50)
+    macd = calculate_macd(prices)
+
+    if ema20 is None or ema50 is None or macd is None:
+        return "⚪ Veri Yok"
+
+    if ema20 > ema50 and macd > 0:
+        return "🟢 Pozitif"
+    elif ema20 < ema50 and macd < 0:
+        return "🔴 Negatif"
+    else:
+        return "🟡 Kararsız"
+
+
+def get_multi_timeframe_trends(coin_id):
+    prices_1h = get_prices_for_ta(coin_id)
+
+    prices_4h = prices_1h[::4]
+
+    prices_1d = get_prices_for_ta(coin_id)
+    prices_1d = prices_1d[::24]
+
+    return {
+        "1H": analyze_timeframe_trend(prices_1h),
+        "4H": analyze_timeframe_trend(prices_4h),
+        "1D": analyze_timeframe_trend(prices_1d)
+    }
 async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
@@ -906,6 +938,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             score,
             levels["rr"]
         )
+        timeframes = get_multi_timeframe_trends(coin_id)
         reasons_text = "\n".join(
             f"• {r}" for r in reasons
         )
@@ -930,6 +963,10 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"⭐ İşlem Skoru: {score}/10\n\n"
             f"🏆 İşlem Kalitesi: {quality}\n\n"
             f"🐋 Kurumsal Para Girişi İhtimali: {institutional_flow}\n\n"
+            f"📊 Çoklu Zaman Dilimi:\n"
+            f"1H Trend: {timeframes['1H']}\n"
+            f"4H Trend: {timeframes['4H']}\n"
+            f"1D Trend: {timeframes['1D']}\n\n"
             f"🧠 Sebep:\n"
             f"{reasons_text}\n\n"
             "⚠️ Bu finansal tavsiye değildir."
