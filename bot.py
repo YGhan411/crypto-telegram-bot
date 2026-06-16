@@ -772,6 +772,37 @@ def calculate_trade_quality(score, rr, volume, change_24h):
         return "C"
     else:
         return "D"
+def calculate_institutional_flow(volume, change_24h, score, rr):
+    flow_score = 0
+
+    if volume >= 100_000_000:
+        flow_score += 1
+    if volume >= 500_000_000:
+        flow_score += 2
+    if volume >= 1_000_000_000:
+        flow_score += 2
+
+    if change_24h >= 2:
+        flow_score += 1
+    if change_24h >= 5:
+        flow_score += 2
+    if change_24h >= 10:
+        flow_score += 2
+
+    if score >= 7:
+        flow_score += 1
+    if score >= 8:
+        flow_score += 2
+
+    if rr >= 2:
+        flow_score += 1
+
+    if flow_score >= 8:
+        return "🟢 Yüksek"
+    elif flow_score >= 5:
+        return "🟡 Orta"
+    else:
+        return "🔴 Düşük"
 async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
@@ -869,6 +900,12 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             volume,
             change_24h
         )
+        institutional_flow = calculate_institutional_flow(
+            volume,
+            change_24h,
+            score,
+            levels["rr"]
+        )
         reasons_text = "\n".join(
             f"• {r}" for r in reasons
         )
@@ -892,6 +929,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"1:{levels['rr']:.2f}\n"
             f"⭐ İşlem Skoru: {score}/10\n\n"
             f"🏆 İşlem Kalitesi: {quality}\n\n"
+            f"🐋 Kurumsal Para Girişi İhtimali: {institutional_flow}\n\n"
             f"🧠 Sebep:\n"
             f"{reasons_text}\n\n"
             "⚠️ Bu finansal tavsiye değildir."
