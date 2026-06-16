@@ -1183,6 +1183,16 @@ async def trade_scan(context: ContextTypes.DEFAULT_TYPE):
             resistance = sr["resistance"]
 
             fib = calculate_fibonacci_levels(prices)
+            if fib is None:
+                fib = {
+                    "swing_low": support,
+                    "swing_high": resistance,
+                    "fib_236": resistance,
+                    "fib_382": resistance,
+                    "fib_500": current_price,
+                    "fib_618": support,
+                    "fib_786": support
+                }
 
             fibo_comment = "Nötr"
             fibo_zone = "Nötr"
