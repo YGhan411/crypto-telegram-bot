@@ -140,6 +140,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/ta_on\n"
         "/ta_off\n"
         "/ta_status\n"
+        "/trade bitcoin\n"
     )
 
 
@@ -681,6 +682,146 @@ async def ta_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(text)
+def calculate_trade_levels(price, direction):
+    if direction == "LONG":
+        stop = price * 0.97
+        target1 = price * 1.03
+        target2 = price * 1.06
+    else:
+        stop = price * 1.03
+        target1 = price * 0.97
+        target2 = price * 0.94
+
+    risk = abs(price - stop)
+    reward = abs(target2 - price)
+
+    rr = reward / risk if risk > 0 else 0
+
+    return {
+        "stop": stop,
+        "target1": target1,
+        "target2": target2,
+        "rr": rr
+    }
+async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text(
+            "Örnek kullanım:\n/trade bitcoin"
+        )
+        return
+
+    coin_id = context.args[0].lower()
+
+    try:
+        coin = get_coin(coin_id)
+
+        if not coin:
+            await update.message.reply_text(
+                "❌ Coin bulunamadı."
+            )
+            return
+
+        prices = get_prices_for_ta(coin_id)
+
+        if len(prices) < 50:
+            await update.message.reply_text(
+                "❌ Yeterli veri yok."
+            )
+            return
+
+        current_price = prices[-1]
+
+        rsi = calculate_rsi(prices)
+        ema20 = calculate_ema(prices, 20)
+        ema50 = calculate_ema(prices, 50)
+        macd = calculate_macd(prices)
+
+        score = 0
+        reasons = []
+
+        if rsi is not None:
+            if 45 <= rsi <= 65:
+                score += 2
+                reasons.append("RSI sağlıklı bölgede")
+            elif rsi < 35:
+                score += 1
+                reasons.append("RSI aşırı satıma yakın")
+
+        if ema20 and ema50:
+            if ema20 > ema50:
+                score += 3
+                reasons.append("EMA20 > EMA50")
+
+        if macd is not None:
+            if macd > 0:
+                score += 2
+                reasons.append("MACD pozitif")
+
+        change_24h = (
+            coin.get("price_change_percentage_24h")
+            or 0
+        )
+
+        volume = coin.get("total_volume") or 0
+
+        if change_24h > 2:
+            score += 1
+            reasons.append("Momentum pozitif")
+
+        if volume > 100_000_000:
+            score += 1
+            reasons.append("Hacim güçlü")
+
+        score = min(score, 10)
+
+        if score >= 7:
+            direction = "LONG"
+        else:
+            direction = "BEKLE"
+
+        if direction == "BEKLE":
+            await update.message.reply_text(
+                f"🪙 {coin['name']}\n\n"
+                f"⭐ Teknik Skor: {score}/10\n"
+                "📌 Şu an güçlü işlem fırsatı yok."
+            )
+            return
+
+        levels = calculate_trade_levels(
+            current_price,
+            direction
+        )
+
+        reasons_text = "\n".join(
+            f"• {r}" for r in reasons
+        )
+
+        text = (
+            "🚨 SMART TRADE\n\n"
+            f"🪙 {coin['name']} "
+            f"({coin['symbol'].upper()})\n"
+            f"📌 Yön: {direction}\n\n"
+            f"💰 Giriş: ${current_price:,.4f}\n"
+            f"🎯 Hedef 1: "
+            f"${levels['target1']:,.4f}\n"
+            f"🎯 Hedef 2: "
+            f"${levels['target2']:,.4f}\n"
+            f"🛑 Stop: "
+            f"${levels['stop']:,.4f}\n\n"
+            f"📊 Risk/Ödül: "
+            f"1:{levels['rr']:.2f}\n"
+            f"⭐ İşlem Skoru: {score}/10\n\n"
+            f"🧠 Sebep:\n"
+            f"{reasons_text}\n\n"
+            "⚠️ Bu finansal tavsiye değildir."
+        )
+
+        await update.message.reply_text(text)
+
+    except Exception as e:
+        await update.message.reply_text(
+            f"Hata:\n{e}"
+        )
 async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
   async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -1741,6 +1882,7 @@ def main():
     app.add_handler(CommandHandler("ta_on", ta_on))
     app.add_handler(CommandHandler("ta_off", ta_off))
     app.add_handler(CommandHandler("ta_status", ta_status))
+    app.add_handler(CommandHandler("trade", trade))
 
 
     print("✅ Bot çalışıyor...")
