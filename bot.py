@@ -1020,6 +1020,17 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💰 Giriş: ${current_price:,.4f}\n"
             f"📉 Destek: ${support:,.4f}\n"
             f"📈 Direnç: ${resistance:,.4f}\n"
+            f"📐 Fibonacci:\n"
+            f"0.236: ${fib['fib_236']:,.4f}\n"
+            f"0.382: ${fib['fib_382']:,.4f}\n"
+            f"0.500: ${fib['fib_500']:,.4f}\n"
+            f"0.618: ${fib['fib_618']:,.4f}\n"
+            f"0.786: ${fib['fib_786']:,.4f}\n"
+            f"📍 Fibo Bölgesi: {fibo_zone}\n"
+            f"🧠 Fibo Yorumu: {fibo_comment}\n\n"
+            f"⬇️ Swing Low: ${fib['swing_low']:,.4f}\n"
+            f"⬆️ Swing High: ${fib['swing_high']:,.4f}\n"
+            f"🧠 Fibo Yorumu: {fibo_comment}\n\n"
             f"🎯 Hedef 1: "
             f"${levels['target1']:,.4f}\n"
             f"🎯 Hedef 2: "
@@ -1048,6 +1059,50 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"Hata:\n{e}"
         )
+def calculate_fibonacci_levels(prices):
+    if len(prices) < 20:
+        return None
+
+    recent_prices = prices[-72:]
+
+    swing_low = min(recent_prices)
+    swing_high = max(recent_prices)
+
+    diff = swing_high - swing_low
+
+    if diff <= 0:
+        return None
+
+    fib_236 = swing_high - (diff * 0.236)
+    fib_382 = swing_high - (diff * 0.382)
+    fib_500 = swing_high - (diff * 0.500)
+    fib_618 = swing_high - (diff * 0.618)
+    fib_786 = swing_high - (diff * 0.786)
+
+    return {
+        "swing_low": swing_low,
+        "swing_high": swing_high,
+        "fib_236": fib_236,
+        "fib_382": fib_382,
+        "fib_500": fib_500,
+        "fib_618": fib_618,
+        "fib_786": fib_786
+    }
+    diff = swing_high - swing_low
+
+    fib_382 = swing_high - (diff * 0.382)
+    fib_500 = swing_high - (diff * 0.500)
+    fib_618 = swing_high - (diff * 0.618)
+    fib_786 = swing_high - (diff * 0.786)
+
+    return {
+        "swing_low": swing_low,
+        "swing_high": swing_high,
+        "fib_382": fib_382,
+        "fib_500": fib_500,
+        "fib_618": fib_618,
+        "fib_786": fib_786
+    }
 async def trade_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
 
@@ -1126,6 +1181,33 @@ async def trade_scan(context: ContextTypes.DEFAULT_TYPE):
             sr = calculate_support_resistance(prices)
             support = sr["support"]
             resistance = sr["resistance"]
+            fib = calculate_fibonacci_levels(prices)
+
+            fibo_comment = "Nötr"
+
+            if fib:
+                if current_price <= fib["fib_618"]:
+                   fibo_comment = "0.618 bölgesine yakın, pullback fırsatı olabilir."
+
+                elif current_price <= fib["fib_500"]:
+                     fibo_comment = "0.500 bölgesinde, destek aranabilir."
+            fibo_zone = "Nötr"
+
+            if fib:
+                distance_618 = abs(current_price - fib["fib_618"]) / current_price
+                distance_500 = abs(current_price - fib["fib_500"]) / current_price
+
+            if distance_618 <= 0.01:
+                fibo_zone = "🟢 0.618 Golden Zone"
+
+            elif distance_500 <= 0.01:
+                fibo_zone = "🟡 0.500 Re-test Zone"
+
+            elif current_price > fib["fib_236"]:
+                fibo_zone = "🚀 Fibo Üst Momentum Bölgesi"
+
+            elif current_price >= fib["fib_382"]:
+                fibo_comment = "Yukarı momentum güçlü."
 
             quality = calculate_trade_quality(
                 score,
