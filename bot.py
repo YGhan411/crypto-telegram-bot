@@ -16,6 +16,7 @@ whale_v2_memory = {}
 whale_v2_cooldown = {}
 ta_cooldown = {}
 trade_scan_cooldown = {}
+price_cache = {}
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable bulunamadı.")
@@ -45,74 +46,50 @@ def get_coin(coin_id):
     data = r.json()
     return data[0] if data else None
 def get_prices_for_ta(coin_id):
+    global price_cache
+
+    now = time.time()
+
+    cache = price_cache.get(coin_id)
+
+    if cache:
+        cache_time = cache["time"]
+
+        if now - cache_time < 300:
+            return cache["prices"]
+
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
+
     params = {
         "vs_currency": "usd",
         "days": 7,
         "interval": "hourly"
     }
 
-    r = requests.get(url, params=params, timeout=20)
+    r = requests.get(
+        url,
+        params=params,
+        timeout=20
+    )
 
     if r.status_code != 200:
-        raise Exception(f"TA veri hatası: {r.status_code}")
+        raise Exception(
+            f"TA veri hatası: {r.status_code}"
+        )
 
     data = r.json()
-    prices = [item[1] for item in data.get("prices", [])]
+
+    prices = [
+        item[1]
+        for item in data.get("prices", [])
+    ]
+
+    price_cache[coin_id] = {
+        "time": now,
+        "prices": prices
+    }
 
     return prices
-
-
-def calculate_ema(prices, period):
-    if len(prices) < period:
-        return None
-
-    multiplier = 2 / (period + 1)
-    ema = sum(prices[:period]) / period
-
-    for price in prices[period:]:
-        ema = (price - ema) * multiplier + ema
-
-    return ema
-
-
-def calculate_rsi(prices, period=14):
-    if len(prices) < period + 1:
-        return None
-
-    gains = []
-    losses = []
-
-    for i in range(1, period + 1):
-        change = prices[i] - prices[i - 1]
-
-        if change >= 0:
-            gains.append(change)
-            losses.append(0)
-        else:
-            gains.append(0)
-            losses.append(abs(change))
-
-    avg_gain = sum(gains) / period
-    avg_loss = sum(losses) / period
-
-    if avg_loss == 0:
-        return 100
-
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-
-    return rsi
-
-
-def calculate_macd(prices):
-    ema12 = calculate_ema(prices, 12)
-    ema26 = calculate_ema(prices, 26)
-
-    if ema12 is None or ema26 is None:
-        return None
-
-    return ema12 - ema26
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1419,6 +1396,22 @@ async def trade_scan_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(text)
+async def trade_scan_status(update, context):
+    ...
+    await update.message.reply_text(text)
+
+
+async def cache_status(update, context):
+    text = (
+        "📦 CACHE DURUMU\n\n"
+        f"Cache'deki Coin: {len(price_cache)}"
+    )
+
+    await update.message.reply_text(text)
+
+
+async def trade(update, context):
+    ...
 async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
   async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -2480,6 +2473,7 @@ def main():
     app.add_handler(CommandHandler("ta_off", ta_off))
     app.add_handler(CommandHandler("ta_status", ta_status))
     app.add_handler(CommandHandler("trade", trade))
+    app.add_handler(CommandHandler("cache", cache_status))
     app.add_handler(CommandHandler("trade_scan_on", trade_scan_on))
     app.add_handler(CommandHandler("trade_scan_off", trade_scan_off))
     app.add_handler(CommandHandler("trade_scan_status", trade_scan_status))
