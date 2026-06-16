@@ -42,6 +42,75 @@ def get_coin(coin_id):
         raise Exception(f"CoinGecko API hatası: {r.status_code}")
     data = r.json()
     return data[0] if data else None
+def get_prices_for_ta(coin_id):
+    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
+    params = {
+        "vs_currency": "usd",
+        "days": 7,
+        "interval": "hourly"
+    }
+
+    r = requests.get(url, params=params, timeout=20)
+
+    if r.status_code != 200:
+        raise Exception(f"TA veri hatası: {r.status_code}")
+
+    data = r.json()
+    prices = [item[1] for item in data.get("prices", [])]
+
+    return prices
+
+
+def calculate_ema(prices, period):
+    if len(prices) < period:
+        return None
+
+    multiplier = 2 / (period + 1)
+    ema = sum(prices[:period]) / period
+
+    for price in prices[period:]:
+        ema = (price - ema) * multiplier + ema
+
+    return ema
+
+
+def calculate_rsi(prices, period=14):
+    if len(prices) < period + 1:
+        return None
+
+    gains = []
+    losses = []
+
+    for i in range(1, period + 1):
+        change = prices[i] - prices[i - 1]
+
+        if change >= 0:
+            gains.append(change)
+            losses.append(0)
+        else:
+            gains.append(0)
+            losses.append(abs(change))
+
+    avg_gain = sum(gains) / period
+    avg_loss = sum(losses) / period
+
+    if avg_loss == 0:
+        return 100
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+
+    return rsi
+
+
+def calculate_macd(prices):
+    ema12 = calculate_ema(prices, 12)
+    ema26 = calculate_ema(prices, 26)
+
+    if ema12 is None or ema26 is None:
+        return None
+
+    return ema12 - ema26
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -66,6 +135,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/whale_v2_on\n"
         "/whale_v2_off\n"
         "/whale_v2_status\n"
+        "/ta bitcoin\n"
     )
 
 
@@ -322,6 +392,102 @@ async def smart(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         text += "⚠️ Bu finansal tavsiye değildir."
+
+        await update.message.reply_text(text)
+
+    except Exception as e:
+        await update.message.reply_text(f"Hata:\n{e}")
+async def ta(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Örnek kullanım:\n/ta bitcoin")
+        return
+
+    coin_id = context.args[0].lower()
+
+    try:
+        coin = get_coin(coin_id)
+
+        if not coin:
+            await update.message.reply_text("❌ Coin bulunamadı.")
+            return
+
+        prices = get_prices_for_ta(coin_id)
+
+        if len(prices) < 50:
+            await update.message.reply_text("❌ Teknik analiz için yeterli veri yok.")
+            return
+
+        current_price = prices[-1]
+        rsi = calculate_rsi(prices)
+        ema20 = calculate_ema(prices, 20)
+        ema50 = calculate_ema(prices, 50)
+        macd = calculate_macd(prices)
+
+        score = 0
+        direction = "Nötr"
+        comments = []
+
+        if rsi is not None:
+            if 45 <= rsi <= 65:
+                score += 2
+                comments.append("RSI sağlıklı bölgede")
+            elif rsi < 30:
+                score += 1
+                comments.append("RSI aşırı satım bölgesinde")
+            elif rsi > 70:
+                comments.append("RSI aşırı alım bölgesinde")
+
+        if ema20 and ema50:
+            if ema20 > ema50:
+                score += 3
+                comments.append("EMA20 > EMA50, trend pozitif")
+            else:
+                comments.append("EMA20 < EMA50, trend zayıf")
+
+        if macd is not None:
+            if macd > 0:
+                score += 2
+                comments.append("MACD pozitif")
+            else:
+                comments.append("MACD negatif")
+
+        change_24h = coin.get("price_change_percentage_24h") or 0
+        volume = coin.get("total_volume") or 0
+
+        if change_24h > 2:
+            score += 1
+            comments.append("24s fiyat momentumu pozitif")
+
+        if volume > 100_000_000:
+            score += 1
+            comments.append("Hacim güçlü")
+
+        score = min(score, 10)
+
+        if score >= 7:
+            direction = "LONG Eğilimli"
+        elif score <= 3:
+            direction = "Zayıf / Bekle"
+        else:
+            direction = "Nötr / İzle"
+
+        comments_text = "\n".join([f"• {c}" for c in comments])
+
+        text = (
+            "📊 TEKNİK ANALİZ\n\n"
+            f"🪙 {coin['name']} ({coin['symbol'].upper()})\n"
+            f"💰 Fiyat: ${current_price:,.4f}\n\n"
+            f"RSI: {rsi:.2f}\n"
+            f"EMA20: ${ema20:,.4f}\n"
+            f"EMA50: ${ema50:,.4f}\n"
+            f"MACD: {macd:.4f}\n\n"
+            f"📈 24s Değişim: %{change_24h:.2f}\n"
+            f"📊 Hacim: ${volume:,.0f}\n\n"
+            f"⭐ Teknik Skor: {score}/10\n"
+            f"📌 Yön: {direction}\n\n"
+            f"🧠 Yorum:\n{comments_text}\n\n"
+            "⚠️ Bu finansal tavsiye değildir."
+        )
 
         await update.message.reply_text(text)
 
@@ -1370,6 +1536,7 @@ def main():
     app.add_handler(CommandHandler("alarm_off", alarm_off))
     app.add_handler(CommandHandler("trending", trending))
     app.add_handler(CommandHandler("smart", smart))
+    app.add_handler(CommandHandler("ta", ta))
     app.add_handler(CommandHandler("volume_spike_on", volume_spike_on))
     app.add_handler(CommandHandler("volume_spike_off", volume_spike_off))
     app.add_handler(CommandHandler("volume_spike_status", volume_spike_status))
