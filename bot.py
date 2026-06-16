@@ -735,6 +735,43 @@ def calculate_support_resistance(prices, lookback=48):
         "support": support,
         "resistance": resistance
     }
+def calculate_trade_quality(score, rr, volume, change_24h):
+    quality_score = 0
+
+    if score >= 8:
+        quality_score += 3
+    elif score >= 7:
+        quality_score += 2
+    elif score >= 6:
+        quality_score += 1
+
+    if rr >= 2.5:
+        quality_score += 3
+    elif rr >= 2:
+        quality_score += 2
+    elif rr >= 1.5:
+        quality_score += 1
+
+    if volume >= 500_000_000:
+        quality_score += 2
+    elif volume >= 100_000_000:
+        quality_score += 1
+
+    if change_24h >= 5:
+        quality_score += 2
+    elif change_24h >= 2:
+        quality_score += 1
+
+    if quality_score >= 9:
+        return "A+"
+    elif quality_score >= 7:
+        return "A"
+    elif quality_score >= 5:
+        return "B"
+    elif quality_score >= 3:
+        return "C"
+    else:
+        return "D"
 async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
@@ -826,6 +863,12 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sr = calculate_support_resistance(prices)
         support = sr["support"]
         resistance = sr["resistance"]
+        quality = calculate_trade_quality(
+            score,
+            levels["rr"],
+            volume,
+            change_24h
+        )
         reasons_text = "\n".join(
             f"• {r}" for r in reasons
         )
@@ -848,6 +891,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📊 Risk/Ödül: "
             f"1:{levels['rr']:.2f}\n"
             f"⭐ İşlem Skoru: {score}/10\n\n"
+            f"🏆 İşlem Kalitesi: {quality}\n\n"
             f"🧠 Sebep:\n"
             f"{reasons_text}\n\n"
             "⚠️ Bu finansal tavsiye değildir."
