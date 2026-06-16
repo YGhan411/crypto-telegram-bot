@@ -1010,6 +1010,8 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             fibo_zone = "🟡 0.500 Re-test Zone"
         elif current_price > fib["fib_236"]:
             fibo_zone = "🚀 Fibo Üst Momentum Bölgesi"
+        market_structure = detect_market_structure(prices)
+
         setup_type = detect_setup_type(
             rsi,
             ema20,
@@ -1049,6 +1051,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"({coin['symbol'].upper()})\n"
             f"📌 Yön: {direction}\n\n"
             f"📌 Setup Türü: {setup_type}\n\n"
+            f"📈 Market Structure: {market_structure}\n\n"
             f"💰 Giriş: ${current_price:,.4f}\n"
             f"📉 Destek: ${support:,.4f}\n"
             f"📈 Direnç: ${resistance:,.4f}\n"
@@ -1135,6 +1138,31 @@ def calculate_fibonacci_levels(prices):
         "fib_618": fib_618,
         "fib_786": fib_786
     }
+def detect_market_structure(prices, lookback=48):
+    if len(prices) < lookback + 5:
+        return "⚪ Veri Yetersiz"
+
+    recent = prices[-lookback:]
+
+    previous_high = max(recent[:-5])
+    previous_low = min(recent[:-5])
+
+    current_price = recent[-1]
+
+    if current_price > previous_high:
+        return "🟢 Bullish BOS"
+
+    elif current_price < previous_low:
+        return "🔴 Bearish BOS"
+
+    elif current_price > recent[-5] and recent[-5] < previous_low * 1.01:
+        return "🟢 Bullish CHoCH"
+
+    elif current_price < recent[-5] and recent[-5] > previous_high * 0.99:
+        return "🔴 Bearish CHoCH"
+
+    else:
+        return "🟡 Range / Yapı Belirsiz"
 async def trade_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
 
