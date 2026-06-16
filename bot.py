@@ -15,6 +15,7 @@ whale_pro_cooldown = {}
 whale_v2_memory = {}
 whale_v2_cooldown = {}
 ta_cooldown = {}
+trade_scan_cooldown = {}
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable bulunamadı.")
@@ -141,6 +142,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/ta_off\n"
         "/ta_status\n"
         "/trade bitcoin\n"
+        "/trade_scan_on\n"
+        "/trade_scan_off\n"
+        "/trade_scan_status\n"
     )
 
 
@@ -978,6 +982,230 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"Hata:\n{e}"
         )
+async def trade_scan(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.chat_id
+
+    try:
+        global trade_scan_cooldown
+
+        data = fetch_markets(order="volume_desc", per_page=20)
+        alerts = []
+
+        for coin in data:
+            coin_id = coin["id"]
+            symbol = coin["symbol"].upper()
+            name = coin["name"]
+            volume = coin.get("total_volume") or 0
+            change_24h = coin.get("price_change_percentage_24h") or 0
+
+            if volume < 50_000_000:
+                continue
+
+            try:
+                prices = get_prices_for_ta(coin_id)
+            except Exception:
+                continue
+
+            if len(prices) < 50:
+                continue
+
+            current_price = prices[-1]
+            rsi = calculate_rsi(prices)
+            ema20 = calculate_ema(prices, 20)
+            ema50 = calculate_ema(prices, 50)
+            macd = calculate_macd(prices)
+
+            if rsi is None or ema20 is None or ema50 is None or macd is None:
+                continue
+
+            score = 0
+            reasons = []
+
+            if 45 <= rsi <= 65:
+                score += 2
+                reasons.append("RSI sağlıklı")
+            elif 30 <= rsi < 45:
+                score += 1
+                reasons.append("RSI toparlanma bölgesi")
+
+            if ema20 > ema50:
+                score += 3
+                reasons.append("EMA20 > EMA50")
+
+            if macd > 0:
+                score += 2
+                reasons.append("MACD pozitif")
+
+            if change_24h >= 2:
+                score += 1
+                reasons.append("Momentum pozitif")
+
+            if volume >= 100_000_000:
+                score += 1
+                reasons.append("Hacim güçlü")
+
+            score = min(score, 10)
+
+            if score < 7:
+                continue
+
+            direction = "LONG"
+
+            levels = calculate_trade_levels(
+                current_price,
+                direction,
+                prices
+            )
+
+            sr = calculate_support_resistance(prices)
+            support = sr["support"]
+            resistance = sr["resistance"]
+
+            quality = calculate_trade_quality(
+                score,
+                levels["rr"],
+                volume,
+                change_24h
+            )
+
+            institutional_flow = calculate_institutional_flow(
+                volume,
+                change_24h,
+                score,
+                levels["rr"]
+            )
+
+            timeframes = get_multi_timeframe_trends(coin_id)
+
+            if quality not in ["A+", "A"]:
+                continue
+
+            if timeframes["1H"] != "🟢 Pozitif":
+                continue
+
+            now = time.time()
+            last_alert_time = trade_scan_cooldown.get(coin_id, 0)
+            cooldown_seconds = 60 * 60
+
+            if now - last_alert_time < cooldown_seconds:
+                continue
+
+            alerts.append({
+                "symbol": symbol,
+                "name": name,
+                "price": current_price,
+                "support": support,
+                "resistance": resistance,
+                "target1": levels["target1"],
+                "target2": levels["target2"],
+                "stop": levels["stop"],
+                "atr": levels["atr"],
+                "rr": levels["rr"],
+                "score": score,
+                "quality": quality,
+                "institutional_flow": institutional_flow,
+                "timeframes": timeframes,
+                "change": change_24h,
+                "volume": volume,
+                "reasons": reasons[:5]
+            })
+
+            trade_scan_cooldown[coin_id] = now
+
+        alerts = sorted(
+            alerts,
+            key=lambda x: x["score"],
+            reverse=True
+        )[:3]
+
+        if not alerts:
+            return
+
+        text = "🚨 HIGH QUALITY TRADE SCANNER\n\n"
+
+        for coin in alerts:
+            reasons_text = "\n".join(f"• {r}" for r in coin["reasons"])
+
+            text += (
+                f"🪙 {coin['symbol']} - {coin['name']}\n"
+                f"📌 Yön: LONG\n\n"
+                f"💰 Giriş: ${coin['price']:,.4f}\n"
+                f"📉 Destek: ${coin['support']:,.4f}\n"
+                f"📈 Direnç: ${coin['resistance']:,.4f}\n"
+                f"🎯 Hedef 1: ${coin['target1']:,.4f}\n"
+                f"🎯 Hedef 2: ${coin['target2']:,.4f}\n"
+                f"🛑 Stop: ${coin['stop']:,.4f}\n\n"
+                f"📏 ATR: ${coin['atr']:,.4f}\n"
+                f"📊 Risk/Ödül: 1:{coin['rr']:.2f}\n"
+                f"⭐ İşlem Skoru: {coin['score']}/10\n"
+                f"🏆 İşlem Kalitesi: {coin['quality']}\n"
+                f"🐋 Kurumsal Para Girişi: {coin['institutional_flow']}\n\n"
+                f"📊 Çoklu Zaman Dilimi:\n"
+                f"1H: {coin['timeframes']['1H']}\n"
+                f"4H: {coin['timeframes']['4H']}\n"
+                f"1D: {coin['timeframes']['1D']}\n\n"
+                f"🧠 Sebep:\n{reasons_text}\n\n"
+            )
+
+        text += "⚠️ Bu finansal tavsiye değildir."
+
+        await context.bot.send_message(chat_id=chat_id, text=text)
+
+    except Exception as e:
+        await context.bot.send_message(chat_id=chat_id, text=f"Trade scan hatası:\n{e}")
+
+
+async def trade_scan_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    for job in context.job_queue.get_jobs_by_name(f"trade_scan_{chat_id}"):
+        job.schedule_removal()
+
+    context.job_queue.run_repeating(
+        trade_scan,
+        interval=300,
+        first=20,
+        chat_id=chat_id,
+        name=f"trade_scan_{chat_id}"
+    )
+
+    await update.message.reply_text(
+        "✅ Trade Scanner açıldı.\n\n"
+        "Bot her 5 dakikada bir yüksek kaliteli işlem fırsatlarını tarayacak."
+    )
+
+
+async def trade_scan_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"trade_scan_{chat_id}")
+
+    if not jobs:
+        await update.message.reply_text("Aktif Trade Scanner yok.")
+        return
+
+    for job in jobs:
+        job.schedule_removal()
+
+    await update.message.reply_text("🛑 Trade Scanner kapatıldı.")
+
+
+async def trade_scan_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"trade_scan_{chat_id}")
+    status = "🟢 Aktif" if jobs else "🔴 Kapalı"
+
+    text = (
+        "🚨 TRADE SCANNER DURUMU\n\n"
+        f"Durum: {status}\n"
+        f"⏳ Cooldown'daki Coin: {len(trade_scan_cooldown)}\n"
+        f"🔄 Tarama Aralığı: 5 Dakika\n"
+        f"🛡️ Cooldown Süresi: 60 Dakika\n"
+        f"📌 Filtre: A/A+ kalite + 1H pozitif trend"
+    )
+
+    await update.message.reply_text(text)
 async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
   async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -2039,6 +2267,9 @@ def main():
     app.add_handler(CommandHandler("ta_off", ta_off))
     app.add_handler(CommandHandler("ta_status", ta_status))
     app.add_handler(CommandHandler("trade", trade))
+    app.add_handler(CommandHandler("trade_scan_on", trade_scan_on))
+    app.add_handler(CommandHandler("trade_scan_off", trade_scan_off))
+    app.add_handler(CommandHandler("trade_scan_status", trade_scan_status))
 
 
     print("✅ Bot çalışıyor...")
