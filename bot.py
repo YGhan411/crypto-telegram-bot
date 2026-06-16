@@ -722,6 +722,19 @@ def calculate_trade_levels(price, direction, prices):
         "target2": target2,
         "rr": rr
     }
+def calculate_support_resistance(prices, lookback=48):
+    if len(prices) < lookback:
+        recent_prices = prices
+    else:
+        recent_prices = prices[-lookback:]
+
+    support = min(recent_prices)
+    resistance = max(recent_prices)
+
+    return {
+        "support": support,
+        "resistance": resistance
+    }
 async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
@@ -810,7 +823,9 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             current_price,
             direction,prices
         )
-
+        sr = calculate_support_resistance(prices)
+        support = sr["support"]
+        resistance = sr["resistance"]
         reasons_text = "\n".join(
             f"• {r}" for r in reasons
         )
@@ -821,6 +836,8 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"({coin['symbol'].upper()})\n"
             f"📌 Yön: {direction}\n\n"
             f"💰 Giriş: ${current_price:,.4f}\n"
+            f"📉 Destek: ${support:,.4f}\n"
+            f"📈 Direnç: ${resistance:,.4f}\n"
             f"🎯 Hedef 1: "
             f"${levels['target1']:,.4f}\n"
             f"🎯 Hedef 2: "
