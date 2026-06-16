@@ -988,7 +988,7 @@ async def trade_scan(context: ContextTypes.DEFAULT_TYPE):
     try:
         global trade_scan_cooldown
 
-        data = fetch_markets(order="volume_desc", per_page=20)
+        data = fetch_markets(order="volume_desc", per_page=8)
         alerts = []
 
         for coin in data:
@@ -1163,8 +1163,8 @@ async def trade_scan_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.job_queue.run_repeating(
         trade_scan,
-        interval=300,
-        first=20,
+        interval=900,
+        first=60,
         chat_id=chat_id,
         name=f"trade_scan_{chat_id}"
     )
