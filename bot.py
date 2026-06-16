@@ -839,6 +839,40 @@ def get_multi_timeframe_trends(coin_id):
         "4H": analyze_timeframe_trend(prices_4h),
         "1D": analyze_timeframe_trend(prices_1d)
     }
+def calculate_confidence_score(score, rr, quality, institutional_flow):
+    confidence = 0
+
+    confidence += score * 6
+
+    if rr >= 3:
+        confidence += 15
+    elif rr >= 2:
+        confidence += 10
+    elif rr >= 1.5:
+        confidence += 5
+
+    if quality == "A+":
+        confidence += 15
+    elif quality == "A":
+        confidence += 10
+    elif quality == "B":
+        confidence += 5
+
+    if "Yüksek" in institutional_flow:
+        confidence += 15
+    elif "Orta" in institutional_flow:
+        confidence += 8
+
+    confidence = min(confidence, 100)
+
+    if confidence >= 80:
+        label = "🟢 Yüksek Güven"
+    elif confidence >= 60:
+        label = "🟡 Orta Güven"
+    else:
+        label = "🔴 Düşük Güven"
+
+    return confidence, label
 async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
@@ -942,6 +976,12 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             score,
             levels["rr"]
         )
+        confidence, confidence_label = calculate_confidence_score(
+            score,
+            levels["rr"],
+            quality,
+            institutional_flow
+        )
         timeframes = get_multi_timeframe_trends(coin_id)
         reasons_text = "\n".join(
             f"• {r}" for r in reasons
@@ -967,6 +1007,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"⭐ İşlem Skoru: {score}/10\n\n"
             f"🏆 İşlem Kalitesi: {quality}\n\n"
             f"🐋 Kurumsal Para Girişi İhtimali: {institutional_flow}\n\n"
+            f"🧠 Güven Skoru: %{confidence} - {confidence_label}\n\n"
             f"📊 Çoklu Zaman Dilimi:\n"
             f"1H Trend: {timeframes['1H']}\n"
             f"4H Trend: {timeframes['4H']}\n"
