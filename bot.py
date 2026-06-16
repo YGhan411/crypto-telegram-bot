@@ -1181,34 +1181,29 @@ async def trade_scan(context: ContextTypes.DEFAULT_TYPE):
             sr = calculate_support_resistance(prices)
             support = sr["support"]
             resistance = sr["resistance"]
+
             fib = calculate_fibonacci_levels(prices)
 
             fibo_comment = "Nötr"
-
-            if fib:
-                if current_price <= fib["fib_618"]:
-                   fibo_comment = "0.618 bölgesine yakın, pullback fırsatı olabilir."
-
-                elif current_price <= fib["fib_500"]:
-                     fibo_comment = "0.500 bölgesinde, destek aranabilir."
             fibo_zone = "Nötr"
 
             if fib:
+                if current_price <= fib["fib_618"]:
+                    fibo_comment = "0.618 bölgesine yakın, pullback fırsatı olabilir."
+                elif current_price <= fib["fib_500"]:
+                    fibo_comment = "0.500 bölgesinde, destek aranabilir."
+                elif current_price >= fib["fib_382"]:
+                    fibo_comment = "Yukarı momentum güçlü."
+
                 distance_618 = abs(current_price - fib["fib_618"]) / current_price
                 distance_500 = abs(current_price - fib["fib_500"]) / current_price
 
-            if distance_618 <= 0.01:
-                fibo_zone = "🟢 0.618 Golden Zone"
-
-            elif distance_500 <= 0.01:
-                fibo_zone = "🟡 0.500 Re-test Zone"
-
-            elif current_price > fib["fib_236"]:
-                fibo_zone = "🚀 Fibo Üst Momentum Bölgesi"
-
-            elif current_price >= fib["fib_382"]:
-                fibo_comment = "Yukarı momentum güçlü."
-
+                if distance_618 <= 0.01:
+                    fibo_zone = "🟢 0.618 Golden Zone"
+                elif distance_500 <= 0.01:
+                    fibo_zone = "🟡 0.500 Re-test Zone"
+                elif current_price > fib["fib_236"]:
+                    fibo_zone = "🚀 Fibo Üst Momentum Bölgesi"
             quality = calculate_trade_quality(
                 score,
                 levels["rr"],
