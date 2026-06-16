@@ -14,6 +14,7 @@ whale_pro_memory = {}
 whale_pro_cooldown = {}
 whale_v2_memory = {}
 whale_v2_cooldown = {}
+ta_cooldown = {}
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable bulunamadı.")
@@ -136,6 +137,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/whale_v2_off\n"
         "/whale_v2_status\n"
         "/ta bitcoin\n"
+        "/ta_on\n"
+        "/ta_off\n"
+        "/ta_status\n"
     )
 
 
@@ -493,6 +497,190 @@ async def ta(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"Hata:\n{e}")
+async def ta_scan(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.chat_id
+
+    try:
+        global ta_cooldown
+
+        data = fetch_markets(order="volume_desc", per_page=50)
+        alerts = []
+
+        for coin in data:
+            coin_id = coin["id"]
+            symbol = coin["symbol"].upper()
+            name = coin["name"]
+            change_24h = coin.get("price_change_percentage_24h") or 0
+            volume = coin.get("total_volume") or 0
+
+            if volume < 50_000_000:
+                continue
+
+            try:
+                prices = get_prices_for_ta(coin_id)
+            except Exception:
+                continue
+
+            if len(prices) < 50:
+                continue
+
+            current_price = prices[-1]
+            rsi = calculate_rsi(prices)
+            ema20 = calculate_ema(prices, 20)
+            ema50 = calculate_ema(prices, 50)
+            macd = calculate_macd(prices)
+
+            if rsi is None or ema20 is None or ema50 is None or macd is None:
+                continue
+
+            score = 0
+            reasons = []
+
+            if 45 <= rsi <= 65:
+                score += 2
+                reasons.append("RSI sağlıklı bölgede")
+            elif 30 <= rsi < 45:
+                score += 1
+                reasons.append("RSI toparlanma bölgesinde")
+
+            if ema20 > ema50:
+                score += 3
+                reasons.append("EMA20 > EMA50")
+
+            if macd > 0:
+                score += 2
+                reasons.append("MACD pozitif")
+
+            if change_24h >= 2:
+                score += 1
+                reasons.append("24s momentum pozitif")
+
+            if volume >= 100_000_000:
+                score += 1
+                reasons.append("Hacim güçlü")
+
+            score = min(score, 10)
+
+            if score < 7:
+                continue
+
+            now = time.time()
+            last_alert_time = ta_cooldown.get(coin_id, 0)
+            cooldown_seconds = 45 * 60
+
+            if now - last_alert_time < cooldown_seconds:
+                continue
+
+            if score >= 8:
+                direction = "Güçlü LONG Eğilimli"
+            else:
+                direction = "LONG İzleme"
+
+            alerts.append({
+                "symbol": symbol,
+                "name": name,
+                "price": current_price,
+                "rsi": rsi,
+                "ema20": ema20,
+                "ema50": ema50,
+                "macd": macd,
+                "change": change_24h,
+                "volume": volume,
+                "score": score,
+                "direction": direction,
+                "reasons": reasons[:4]
+            })
+
+            ta_cooldown[coin_id] = now
+
+        alerts = sorted(
+            alerts,
+            key=lambda x: x["score"],
+            reverse=True
+        )[:5]
+
+        if not alerts:
+            return
+
+        text = "🚨 TEKNİK İŞLEM FIRSATI\n\n"
+
+        for coin in alerts:
+            reasons_text = ", ".join(coin["reasons"])
+
+            text += (
+                f"🪙 {coin['symbol']} - {coin['name']}\n"
+                f"💰 Fiyat: ${coin['price']:,.4f}\n"
+                f"📈 24s Değişim: %{coin['change']:.2f}\n"
+                f"📊 Hacim: ${coin['volume']:,.0f}\n\n"
+                f"RSI: {coin['rsi']:.2f}\n"
+                f"EMA20: ${coin['ema20']:,.4f}\n"
+                f"EMA50: ${coin['ema50']:,.4f}\n"
+                f"MACD: {coin['macd']:.4f}\n\n"
+                f"⭐ Teknik Skor: {coin['score']}/10\n"
+                f"📌 Yön: {coin['direction']}\n"
+                f"🧠 Sebep: {reasons_text}\n\n"
+            )
+
+        text += "⚠️ Bu finansal tavsiye değildir."
+
+        await context.bot.send_message(chat_id=chat_id, text=text)
+
+    except Exception as e:
+        await context.bot.send_message(chat_id=chat_id, text=f"TA tarama hatası:\n{e}")
+
+
+async def ta_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    for job in context.job_queue.get_jobs_by_name(f"ta_{chat_id}"):
+        job.schedule_removal()
+
+    context.job_queue.run_repeating(
+        ta_scan,
+        interval=300,
+        first=20,
+        chat_id=chat_id,
+        name=f"ta_{chat_id}"
+    )
+
+    await update.message.reply_text(
+        "✅ Otomatik teknik tarayıcı açıldı.\n\n"
+        "Bot her 5 dakikada bir teknik işlem fırsatlarını tarayacak."
+    )
+
+
+async def ta_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"ta_{chat_id}")
+
+    if not jobs:
+        await update.message.reply_text("Aktif teknik tarayıcı yok.")
+        return
+
+    for job in jobs:
+        job.schedule_removal()
+
+    await update.message.reply_text("🛑 Otomatik teknik tarayıcı kapatıldı.")
+
+
+async def ta_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"ta_{chat_id}")
+
+    status = "🟢 Aktif" if jobs else "🔴 Kapalı"
+
+    text = (
+        "📊 TA TARAMA DURUMU\n\n"
+        f"Durum: {status}\n"
+        f"⏳ Cooldown'daki Coin: {len(ta_cooldown)}\n"
+        f"🔄 Tarama Aralığı: 5 Dakika\n"
+        f"🛡️ Cooldown Süresi: 45 Dakika\n"
+        f"📌 Filtre: RSI + EMA20/50 + MACD + Hacim"
+    )
+
+    await update.message.reply_text(text)
 async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
   async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
@@ -1550,6 +1738,9 @@ def main():
     app.add_handler(CommandHandler("whale_v2_on", whale_v2_on))
     app.add_handler(CommandHandler("whale_v2_off", whale_v2_off))
     app.add_handler(CommandHandler("whale_v2_status", whale_v2_status))
+    app.add_handler(CommandHandler("ta_on", ta_on))
+    app.add_handler(CommandHandler("ta_off", ta_off))
+    app.add_handler(CommandHandler("ta_status", ta_status))
 
 
     print("✅ Bot çalışıyor...")
