@@ -873,6 +873,20 @@ def calculate_confidence_score(score, rr, quality, institutional_flow):
         label = "🔴 Düşük Güven"
 
     return confidence, label
+def detect_setup_type(rsi, ema20, ema50, macd, change_24h, price, resistance, support):
+    if ema20 > ema50 and macd > 0 and 45 <= rsi <= 65:
+        return "Trend Continuation"
+
+    if price >= resistance * 0.98 and macd > 0 and change_24h > 2:
+        return "Breakout Adayı"
+
+    if price <= support * 1.03 and 35 <= rsi <= 55 and ema20 > ema50:
+        return "Pullback"
+
+    if rsi < 35 and macd > 0:
+        return "Reversal Adayı"
+
+    return "Standart Momentum"
 async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
@@ -964,6 +978,16 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sr = calculate_support_resistance(prices)
         support = sr["support"]
         resistance = sr["resistance"]
+        setup_type = detect_setup_type(
+            rsi,
+            ema20,
+            ema50,
+            macd,
+            change_24h,
+            current_price,
+            resistance,
+            support
+        )  
         quality = calculate_trade_quality(
             score,
             levels["rr"],
@@ -992,6 +1016,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🪙 {coin['name']} "
             f"({coin['symbol'].upper()})\n"
             f"📌 Yön: {direction}\n\n"
+            f"📌 Setup Türü: {setup_type}\n\n"
             f"💰 Giriş: ${current_price:,.4f}\n"
             f"📉 Destek: ${support:,.4f}\n"
             f"📈 Direnç: ${resistance:,.4f}\n"
