@@ -922,15 +922,13 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         
     try:
-        await update.message.reply_text("1️⃣ Coin verisi çekiliyor...")
+        
         coin = get_coin(coin_id)
-
         if not coin:
             await update.message.reply_text("❌ Coin bulunamadı.")
             return
-        await update.message.reply_text("2️⃣ Fiyat verisi çekiliyor...")
+        
         prices = get_prices_for_ta(coin_id)
-
         if len(prices) < 50:
             await update.message.reply_text("❌ Yeterli veri yok.")
             return
