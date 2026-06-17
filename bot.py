@@ -2506,7 +2506,6 @@ def main():
     app.add_handler(CommandHandler("ta_off", ta_off))
     app.add_handler(CommandHandler("ta_status", ta_status))
     app.add_handler(CommandHandler("trade", trade))
-    app.add_handler(CommandHandler("tradetest", trade_debug))
     app.add_handler(CommandHandler("cache", cache_status))
     app.add_handler(CommandHandler("trade_scan_on", trade_scan_on))
     app.add_handler(CommandHandler("trade_scan_off", trade_scan_off))
