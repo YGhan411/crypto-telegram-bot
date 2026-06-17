@@ -919,11 +919,11 @@ async def trade_debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Trade handler çalışıyor.")
 
 async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
+   async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Trade analizi başlatıldı...")
+
     if not context.args:
-        await update.message.reply_text(
-            "Örnek kullanım:\n/trade bitcoin"
-        )
+        await update.message.reply_text("Örnek kullanım:\n/trade bitcoin")
         return
 
     coin_id = context.args[0].lower()
@@ -932,17 +932,13 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
         coin = get_coin(coin_id)
 
         if not coin:
-            await update.message.reply_text(
-                "❌ Coin bulunamadı."
-            )
+            await update.message.reply_text("❌ Coin bulunamadı.")
             return
 
         prices = get_prices_for_ta(coin_id)
 
         if len(prices) < 50:
-            await update.message.reply_text(
-                "❌ Yeterli veri yok."
-            )
+            await update.message.reply_text("❌ Yeterli veri yok.")
             return
 
         current_price = prices[-1]
@@ -952,32 +948,29 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ema50 = calculate_ema(prices, 50)
         macd = calculate_macd(prices)
 
+        if rsi is None or ema20 is None or ema50 is None or macd is None:
+            await update.message.reply_text("❌ Teknik göstergeler hesaplanamadı.")
+            return
+
         score = 0
         reasons = []
 
-        if rsi is not None:
-            if 45 <= rsi <= 65:
-                score += 2
-                reasons.append("RSI sağlıklı bölgede")
-            elif rsi < 35:
-                score += 1
-                reasons.append("RSI aşırı satıma yakın")
+        if 45 <= rsi <= 65:
+            score += 2
+            reasons.append("RSI sağlıklı bölgede")
+        elif rsi < 35:
+            score += 1
+            reasons.append("RSI aşırı satıma yakın")
 
-        if ema20 and ema50:
-            if ema20 > ema50:
-                score += 3
-                reasons.append("EMA20 > EMA50")
+        if ema20 > ema50:
+            score += 3
+            reasons.append("EMA20 > EMA50")
 
-        if macd is not None:
-            if macd > 0:
-                score += 2
-                reasons.append("MACD pozitif")
+        if macd > 0:
+            score += 2
+            reasons.append("MACD pozitif")
 
-        change_24h = (
-            coin.get("price_change_percentage_24h")
-            or 0
-        )
-
+        change_24h = coin.get("price_change_percentage_24h") or 0
         volume = coin.get("total_volume") or 0
 
         if change_24h > 2:
@@ -990,12 +983,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         score = min(score, 10)
 
-        if score >= 7:
-            direction = "LONG"
-        else:
-            direction = "BEKLE"
-
-        if direction == "BEKLE":
+        if score < 7:
             await update.message.reply_text(
                 f"🪙 {coin['name']}\n\n"
                 f"⭐ Teknik Skor: {score}/10\n"
@@ -1003,13 +991,18 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
+        direction = "LONG"
+
         levels = calculate_trade_levels(
             current_price,
-            direction,prices
+            direction,
+            prices
         )
+
         sr = calculate_support_resistance(prices)
         support = sr["support"]
         resistance = sr["resistance"]
+
         fib = calculate_fibonacci_levels(prices)
 
         if fib is None:
@@ -1042,6 +1035,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             fibo_zone = "🟡 0.500 Re-test Zone"
         elif current_price > fib["fib_236"]:
             fibo_zone = "🚀 Fibo Üst Momentum Bölgesi"
+
         market_structure = detect_market_structure(prices)
         liquidity_sweep = detect_liquidity_sweep(prices)
 
@@ -1054,74 +1048,75 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             current_price,
             resistance,
             support
-        )  
+        )
+
         quality = calculate_trade_quality(
             score,
             levels["rr"],
             volume,
             change_24h
         )
+
         institutional_flow = calculate_institutional_flow(
             volume,
             change_24h,
             score,
             levels["rr"]
         )
+
         confidence, confidence_label = calculate_confidence_score(
             score,
             levels["rr"],
             quality,
             institutional_flow
         )
+
         timeframes = get_multi_timeframe_trends(coin_id)
-        reasons_text = "\n".join(
-            f"• {r}" for r in reasons
-        )
+
+        reasons_text = "\n".join(f"• {r}" for r in reasons)
 
         text = (
             "🚨 SMART TRADE\n\n"
-            f"🪙 {coin['name']} "
-            f"({coin['symbol'].upper()})\n"
-            f"📌 Yön: {direction}\n\n"
-            f"📌 Setup Türü: {setup_type}\n\n"
-            f"📈 Market Structure: {market_structure}\n\n"
+            f"🪙 {coin['name']} ({coin['symbol'].upper()})\n"
+            f"📌 Yön: {direction}\n"
+            f"📌 Setup Türü: {setup_type}\n"
+            f"📈 Market Structure: {market_structure}\n"
             f"💧 Liquidity Sweep: {liquidity_sweep}\n\n"
+
             f"💰 Giriş: ${current_price:,.4f}\n"
             f"📉 Destek: ${support:,.4f}\n"
-            f"📈 Direnç: ${resistance:,.4f}\n"
+            f"📈 Direnç: ${resistance:,.4f}\n\n"
+
             f"📐 Fibonacci:\n"
             f"0.236: ${fib['fib_236']:,.4f}\n"
             f"0.382: ${fib['fib_382']:,.4f}\n"
             f"0.500: ${fib['fib_500']:,.4f}\n"
             f"0.618: ${fib['fib_618']:,.4f}\n"
             f"0.786: ${fib['fib_786']:,.4f}\n"
-            f"📍 Fibo Bölgesi: {fibo_zone}\n"
-            f"🧠 Fibo Yorumu: {fibo_comment}\n\n"
             f"⬇️ Swing Low: ${fib['swing_low']:,.4f}\n"
             f"⬆️ Swing High: ${fib['swing_high']:,.4f}\n"
+            f"📍 Fibo Bölgesi: {fibo_zone}\n"
             f"🧠 Fibo Yorumu: {fibo_comment}\n\n"
-            f"🎯 Hedef 1: "
-            f"${levels['target1']:,.4f}\n"
-            f"🎯 Hedef 2: "
-            f"${levels['target2']:,.4f}\n"
-            f"🛑 Stop: "
-            f"${levels['stop']:,.4f}\n\n"
+
+            f"🎯 Hedef 1: ${levels['target1']:,.4f}\n"
+            f"🎯 Hedef 2: ${levels['target2']:,.4f}\n"
+            f"🛑 Stop: ${levels['stop']:,.4f}\n\n"
+
             f"📏 ATR: ${levels['atr']:,.4f}\n"
-            f"📊 Risk/Ödül: "
-            f"1:{levels['rr']:.2f}\n"
-            f"⭐ İşlem Skoru: {score}/10\n\n"
-            f"🏆 İşlem Kalitesi: {quality}\n\n"
-            f"🐋 Kurumsal Para Girişi İhtimali: {institutional_flow}\n\n"
+            f"📊 Risk/Ödül: 1:{levels['rr']:.2f}\n"
+            f"⭐ İşlem Skoru: {score}/10\n"
+            f"🏆 İşlem Kalitesi: {quality}\n"
+            f"🐋 Kurumsal Para Girişi İhtimali: {institutional_flow}\n"
             f"🧠 Güven Skoru: %{confidence} - {confidence_label}\n\n"
+
             f"📊 Çoklu Zaman Dilimi:\n"
             f"1H Trend: {timeframes['1H']}\n"
             f"4H Trend: {timeframes['4H']}\n"
             f"1D Trend: {timeframes['1D']}\n\n"
-            f"🧠 Sebep:\n"
-            f"{reasons_text}\n\n"
+
+            f"🧠 Sebep:\n{reasons_text}\n\n"
             "⚠️ Bu finansal tavsiye değildir."
         )
-
 
         await update.message.reply_text(text)
 
