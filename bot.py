@@ -1067,7 +1067,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         reasons_text = "\n".join(f"• {r}" for r in reasons)
 
-                text = (
+        text = (
             "🚨 SMART TRADE PRO\n"
             "━━━━━━━━━━━━━━\n\n"
 
