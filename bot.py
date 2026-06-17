@@ -141,6 +141,59 @@ def calculate_macd(prices):
 
     return ema12 - ema26
 
+def to_bybit_symbol(symbol):
+    return f"{symbol.upper()}USDT"
+
+
+def get_bybit_klines(symbol, interval="15", limit=100):
+    url = "https://api.bybit.com/v5/market/kline"
+
+    params = {
+        "category": "linear",
+        "symbol": to_bybit_symbol(symbol),
+        "interval": interval,
+        "limit": limit
+    }
+
+    r = requests.get(url, params=params, timeout=15)
+
+    if r.status_code != 200:
+        raise Exception(f"Bybit kline hatası: {r.status_code}")
+
+    data = r.json()
+
+    items = data.get("result", {}).get("list", [])
+
+    if not items:
+        return []
+
+    candles = []
+
+    for item in reversed(items):
+        candles.append({
+            "time": item[0],
+            "open": float(item[1]),
+            "high": float(item[2]),
+            "low": float(item[3]),
+            "close": float(item[4]),
+            "volume": float(item[5])
+        })
+
+    return candles
+
+
+def calculate_volume_change(candles, period=20):
+    if len(candles) < period + 1:
+        return 0
+
+    recent_volume = candles[-1]["volume"]
+    avg_volume = sum(c["volume"] for c in candles[-period-1:-1]) / period
+
+    if avg_volume <= 0:
+        return 0
+
+    return ((recent_volume - avg_volume) / avg_volume) * 100
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -172,6 +225,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/trade_scan_on\n"
         "/trade_scan_off\n"
         "/trade_scan_status\n"
+        "/scalp btc\n"
     )
 
 
@@ -1062,11 +1116,175 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             quality,
             institutional_flow
         )
-        await update.message.reply_text("3️⃣ Çoklu zaman dilimi hesaplanıyor...")
         timeframes = get_multi_timeframe_trends(coin_id)
 
         reasons_text = "\n".join(f"• {r}" for r in reasons)
 
+        text = (
+            "🚨 SMART TRADE PRO\n"
+            "━━━━━━━━━━━━━━\n\n"
+            "📊 ANALİZ ÖZETİ\n"
+            "━━━━━━━━━━━━━━\n"
+            f"🪙 {coin['name']} ({coin['symbol'].upper()})\n"
+            f"📌 Yön: {direction}\n"
+            f"📌 Setup: {setup_type}\n"
+            f"📈 Market Structure: {market_structure}\n"
+            f"💧 Liquidity Sweep: {liquidity_sweep}\n"
+            f"🧠 Güven: %{confidence} - {confidence_label}\n\n"
+            "🎯 İŞLEM PLANI\n"
+            "━━━━━━━━━━━━━━\n"
+            f"💰 Giriş: ${current_price:,.4f}\n"
+            f"📉 Destek: ${support:,.4f}\n"
+            f"📈 Direnç: ${resistance:,.4f}\n"
+            f"🎯 Hedef 1: ${levels['target1']:,.4f}\n"
+            f"🎯 Hedef 2: ${levels['target2']:,.4f}\n"
+            f"🛑 Stop: ${levels['stop']:,.4f}\n"
+            f"📏 ATR: ${levels['atr']:,.4f}\n"
+            f"📊 Risk/Ödül: 1:{levels['rr']:.2f}\n\n"
+            "📐 FİBONACCİ\n"
+            "━━━━━━━━━━━━━━\n"
+            f"0.236 ➜ ${fib['fib_236']:,.4f}\n"
+            f"0.382 ➜ ${fib['fib_382']:,.4f}\n"
+            f"0.500 ➜ ${fib['fib_500']:,.4f}\n"
+            f"0.618 ➜ ${fib['fib_618']:,.4f}\n"
+            f"0.786 ➜ ${fib['fib_786']:,.4f}\n"
+            f"⬇️ Swing Low: ${fib['swing_low']:,.4f}\n"
+            f"⬆️ Swing High: ${fib['swing_high']:,.4f}\n"
+            f"📍 Bölge: {fibo_zone}\n"
+            f"🧠 Yorum: {fibo_comment}\n\n"
+            "🧠 ONAYLAR\n"
+            "━━━━━━━━━━━━━━\n"
+            f"⭐ Teknik Skor: {score}/10\n"
+            f"🏆 İşlem Kalitesi: {quality}\n"
+            f"🐋 Kurumsal Para Girişi: {institutional_flow}\n\n"
+            "📊 ÇOKLU ZAMAN DİLİMİ\n"
+            "━━━━━━━━━━━━━━\n"
+            f"1H ➜ {timeframes['1H']}\n"
+            f"4H ➜ {timeframes['4H']}\n"
+            f"1D ➜ {timeframes['1D']}\n\n"
+            "📝 SİNYAL NEDENLERİ\n"
+            "━━━━━━━━━━━━━━\n"
+            f"{reasons_text}\n\n"
+            "⚠️ Bu finansal tavsiye değildir."
+        )
+
+        await update.message.reply_text(text)
+
+    except Exception as e:
+        await update.message.reply_text(
+            f"TRADE HATASI:\n{type(e).__name__}\n{e}"
+        )
+
+async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Örnek kullanım:\n/scalp btc")
+        return
+
+    symbol = context.args[0].upper()
+
+    try:
+        candles = get_bybit_klines(symbol, interval="15", limit=100)
+
+        if len(candles) < 50:
+            await update.message.reply_text("❌ Scalp analizi için yeterli mum verisi yok.")
+            return
+
+        closes = [c["close"] for c in candles]
+
+        current_price = closes[-1]
+        previous_close = closes[-2]
+
+        rsi = calculate_rsi(closes)
+        ema9 = calculate_ema(closes, 9)
+        ema21 = calculate_ema(closes, 21)
+        macd = calculate_macd(closes)
+        volume_change = calculate_volume_change(candles)
+
+        last_momentum = ((current_price - previous_close) / previous_close) * 100
+
+        score = 0
+        reasons = []
+
+        if rsi is not None:
+            if 45 <= rsi <= 68:
+                score += 2
+                reasons.append("RSI scalp için sağlıklı")
+            elif 35 <= rsi < 45:
+                score += 1
+                reasons.append("RSI toparlanma bölgesinde")
+            elif rsi > 75:
+                reasons.append("RSI aşırı ısınmış")
+
+        if ema9 and ema21:
+            if ema9 > ema21:
+                score += 3
+                reasons.append("EMA9 > EMA21")
+            else:
+                reasons.append("EMA9 < EMA21")
+
+        if macd is not None:
+            if macd > 0:
+                score += 2
+                reasons.append("MACD pozitif")
+            else:
+                reasons.append("MACD negatif")
+
+        if last_momentum > 0:
+            score += 1
+            reasons.append("Son mum pozitif")
+
+        if volume_change >= 20:
+            score += 2
+            reasons.append("Hacim ortalamanın üstünde")
+        elif volume_change >= 5:
+            score += 1
+            reasons.append("Hacimde hafif artış")
+
+        score = min(score, 10)
+
+        if score >= 8:
+            direction = "GÜÇLÜ LONG"
+        elif score >= 6:
+            direction = "LONG İZLE"
+        else:
+            direction = "BEKLE"
+
+        stop = current_price * 0.995
+        target1 = current_price * 1.006
+        target2 = current_price * 1.012
+
+        reasons_text = "\n".join(f"• {r}" for r in reasons)
+
+        text = (
+            "⚡ SCALP ANALİZİ\n"
+            "━━━━━━━━━━━━━━\n\n"
+            f"🪙 {symbol}USDT\n"
+            f"⏱️ Zaman Dilimi: 15m\n"
+            f"📌 Yön: {direction}\n\n"
+
+            f"💰 Fiyat: ${current_price:,.4f}\n"
+            f"🎯 Hedef 1: ${target1:,.4f}\n"
+            f"🎯 Hedef 2: ${target2:,.4f}\n"
+            f"🛑 Stop: ${stop:,.4f}\n\n"
+
+            f"RSI: {rsi:.2f}\n"
+            f"EMA9: ${ema9:,.4f}\n"
+            f"EMA21: ${ema21:,.4f}\n"
+            f"MACD: {macd:.4f}\n"
+            f"📊 Hacim Değişimi: %{volume_change:.2f}\n"
+            f"📈 Son Mum Momentum: %{last_momentum:.2f}\n\n"
+
+            f"⭐ Scalp Skoru: {score}/10\n\n"
+            f"🧠 Sebep:\n{reasons_text}\n\n"
+            "⚠️ Bu finansal tavsiye değildir."
+        )
+
+        await update.message.reply_text(text)
+
+    except Exception as e:
+        await update.message.reply_text(
+            f"SCALP HATASI:\n{type(e).__name__}\n{e}"
+        )
         text = (
             "🚨 SMART TRADE PRO\n"
             "━━━━━━━━━━━━━━\n\n"
@@ -2514,6 +2732,7 @@ def main():
     app.add_handler(CommandHandler("trade_scan_on", trade_scan_on))
     app.add_handler(CommandHandler("trade_scan_off", trade_scan_off))
     app.add_handler(CommandHandler("trade_scan_status", trade_scan_status))
+    app.add_handler(CommandHandler("scalp", scalp))
 
 
     print("✅ Bot çalışıyor...")
