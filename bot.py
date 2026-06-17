@@ -1125,7 +1125,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(text)
 
-     except Exception as e:
+    except Exception as e:
         await update.message.reply_text(
             f"TRADE HATASI:\n{type(e).__name__}\n{e}"
         )
@@ -1158,21 +1158,7 @@ def calculate_fibonacci_levels(prices):
         "fib_618": fib_618,
         "fib_786": fib_786
     }
-    diff = swing_high - swing_low
 
-    fib_382 = swing_high - (diff * 0.382)
-    fib_500 = swing_high - (diff * 0.500)
-    fib_618 = swing_high - (diff * 0.618)
-    fib_786 = swing_high - (diff * 0.786)
-
-    return {
-        "swing_low": swing_low,
-        "swing_high": swing_high,
-        "fib_382": fib_382,
-        "fib_500": fib_500,
-        "fib_618": fib_618,
-        "fib_786": fib_786
-    }
 def detect_market_structure(prices, lookback=48):
     if len(prices) < lookback + 5:
         return "⚪ Veri Yetersiz"
