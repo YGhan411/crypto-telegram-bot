@@ -988,6 +988,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif current_price > fib["fib_236"]:
             fibo_zone = "🚀 Fibo Üst Momentum Bölgesi"
         market_structure = detect_market_structure(prices)
+        liquidity_sweep = detect_liquidity_sweep(prices)
 
         setup_type = detect_setup_type(
             rsi,
@@ -1029,6 +1030,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📌 Yön: {direction}\n\n"
             f"📌 Setup Türü: {setup_type}\n\n"
             f"📈 Market Structure: {market_structure}\n\n"
+            f"💧 Liquidity Sweep: {liquidity_sweep}\n\n"
             f"💰 Giriş: ${current_price:,.4f}\n"
             f"📉 Destek: ${support:,.4f}\n"
             f"📈 Direnç: ${resistance:,.4f}\n"
@@ -1064,6 +1066,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{reasons_text}\n\n"
             "⚠️ Bu finansal tavsiye değildir."
         )
+
 
         await update.message.reply_text(text)
 
