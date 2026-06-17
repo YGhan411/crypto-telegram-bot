@@ -1125,9 +1125,9 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(text)
 
-    except Exception as e:
+     except Exception as e:
         await update.message.reply_text(
-            f"Hata:\n{e}"
+            f"TRADE HATASI:\n{type(e).__name__}\n{e}"
         )
 def calculate_fibonacci_levels(prices):
     if len(prices) < 20:
