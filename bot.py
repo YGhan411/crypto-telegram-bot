@@ -141,28 +141,27 @@ def calculate_macd(prices):
 
     return ema12 - ema26
 
-def to_bybit_symbol(symbol):
-    return f"{symbol.upper()}USDT"
+def to_okx_symbol(symbol):
+    return f"{symbol.upper()}-USDT-SWAP"
 
 
 def get_bybit_klines(symbol, interval="15", limit=100):
-    url = "https://api.bybit.com/v5/market/kline"
+    url = "https://www.okx.com/api/v5/market/candles"
 
     params = {
-        "category": "linear",
-        "symbol": to_bybit_symbol(symbol),
-        "interval": interval,
+        "instId": to_okx_symbol(symbol),
+        "bar": f"{interval}m",
         "limit": limit
     }
 
     r = requests.get(url, params=params, timeout=15)
 
     if r.status_code != 200:
-        raise Exception(f"Bybit kline hatası: {r.status_code}")
+        raise Exception(f"OKX kline hatası: {r.status_code}")
 
     data = r.json()
 
-    items = data.get("result", {}).get("list", [])
+    items = data.get("data", [])
 
     if not items:
         return []
@@ -180,6 +179,7 @@ def get_bybit_klines(symbol, interval="15", limit=100):
         })
 
     return candles
+   
 
 
 def calculate_volume_change(candles, period=20):
