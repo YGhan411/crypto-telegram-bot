@@ -915,6 +915,7 @@ def detect_setup_type(rsi, ema20, ema50, macd, change_24h, price, resistance, su
 
     return "Standart Momentum"
 async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Trade analizi başlatıldı...")
     if not context.args:
         await update.message.reply_text(
             "Örnek kullanım:\n/trade bitcoin"
