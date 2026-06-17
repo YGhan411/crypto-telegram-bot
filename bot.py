@@ -1429,9 +1429,6 @@ async def trade_scan_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(text)
-async def trade_scan_status(update, context):
-    ...
-    await update.message.reply_text(text)
 
 
 async def cache_status(update, context):
@@ -1443,8 +1440,6 @@ async def cache_status(update, context):
     await update.message.reply_text(text)
 
 
-async def trade(update, context):
-    ...
 async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
   async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
