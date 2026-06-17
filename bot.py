@@ -915,26 +915,20 @@ def detect_setup_type(rsi, ema20, ema50, macd, change_24h, price, resistance, su
 
     return "Standart Momentum"
 
-async def trade_debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Trade handler çalışıyor.")
-
 async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
-   async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Trade analizi başlatıldı...")
-
-    if not context.args:
-        await update.message.reply_text("Örnek kullanım:\n/trade bitcoin")
-        return
 
     coin_id = context.args[0].lower()
 
+        
     try:
+        await update.message.reply_text("1️⃣ Coin verisi çekiliyor...")
         coin = get_coin(coin_id)
 
         if not coin:
             await update.message.reply_text("❌ Coin bulunamadı.")
             return
-
+        await update.message.reply_text("2️⃣ Fiyat verisi çekiliyor...")
         prices = get_prices_for_ta(coin_id)
 
         if len(prices) < 50:
@@ -1070,7 +1064,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             quality,
             institutional_flow
         )
-
+        await update.message.reply_text("3️⃣ Çoklu zaman dilimi hesaplanıyor...")
         timeframes = get_multi_timeframe_trends(coin_id)
 
         reasons_text = "\n".join(f"• {r}" for r in reasons)
