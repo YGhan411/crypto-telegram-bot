@@ -193,7 +193,39 @@ def calculate_volume_change(candles, period=20):
         return 0
 
     return ((recent_volume - avg_volume) / avg_volume) * 100
+def analyze_scalp_timeframe(symbol, interval):
+    try:
+        candles = get_bybit_klines(symbol, interval=interval, limit=100)
 
+        if len(candles) < 50:
+            return "⚪ Veri Yok"
+
+        closes = [c["close"] for c in candles]
+
+        ema9 = calculate_ema(closes, 9)
+        ema21 = calculate_ema(closes, 21)
+        macd = calculate_macd(closes)
+
+        if ema9 is None or ema21 is None or macd is None:
+            return "⚪ Veri Yok"
+
+        if ema9 > ema21 and macd > 0:
+            return "🟢 Pozitif"
+        elif ema9 < ema21 and macd < 0:
+            return "🔴 Negatif"
+        else:
+            return "🟡 Kararsız"
+
+    except Exception:
+        return "⚪ Veri Yok"
+
+
+def get_scalp_timeframe_confirmations(symbol):
+    return {
+        "5m": analyze_scalp_timeframe(symbol, "5"),
+        "15m": analyze_scalp_timeframe(symbol, "15"),
+        "1H": analyze_scalp_timeframe(symbol, "60")
+    }
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -1199,6 +1231,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ema21 = calculate_ema(closes, 21)
         macd = calculate_macd(closes)
         volume_change = calculate_volume_change(candles)
+        timeframe_confirmations = get_scalp_timeframe_confirmations(symbol)
 
         last_momentum = ((current_price - previous_close) / previous_close) * 100
 
@@ -1273,6 +1306,10 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"MACD: {macd:.4f}\n"
             f"📊 Hacim Değişimi: %{volume_change:.2f}\n"
             f"📈 Son Mum Momentum: %{last_momentum:.2f}\n\n"
+            f"📊 Zaman Dilimi Onayı:\n"
+            f"5m ➜ {timeframe_confirmations['5m']}\n"
+            f"15m ➜ {timeframe_confirmations['15m']}\n"
+            f"1H ➜ {timeframe_confirmations['1H']}\n\n"
 
             f"⭐ Scalp Skoru: {score}/10\n\n"
             f"🧠 Sebep:\n{reasons_text}\n\n"
