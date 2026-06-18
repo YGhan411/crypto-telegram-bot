@@ -1311,7 +1311,19 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         stop = current_price * 0.995
         target1 = current_price * 1.006
-        target2 = current_price * 1.012        
+        target2 = current_price * 1.012 
+
+        if ema9 and ema21 and ema50 and ema200:
+            if ema9 > ema21 > ema50 > ema200:
+                ribbon = "🟢 Mükemmel"
+            elif ema9 > ema21 > ema50:
+                ribbon = "🟢 Güçlü"
+            elif ema9 > ema21:
+                ribbon = "🟡 Orta"
+            else:
+                ribbon = "🔴 Zayıf"
+        else:
+            ribbon = "⚪ Veri Yok"       
         
         reasons_text = "\n".join(f"• {r}" for r in reasons)
 
