@@ -1414,6 +1414,7 @@ async def scalp_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(text)
+async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Örnek kullanım:\n/scalp btc")
         return
@@ -1429,8 +1430,6 @@ async def scalp_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         closes = [c["close"] for c in candles]
 
-        current_price = closes[-1]
-        previous_close = closes[-2]
         current_price = closes[-1]
         previous_close = closes[-2]
 
@@ -3066,7 +3065,7 @@ def main():
     app.add_handler(CommandHandler("trade_scan_on", trade_scan_on))
     app.add_handler(CommandHandler("trade_scan_off", trade_scan_off))
     app.add_handler(CommandHandler("trade_scan_status", trade_scan_status))
-    # app.add_handler(CommandHandler("scalp", scalp))
+    app.add_handler(CommandHandler("scalp", scalp))
     app.add_handler(CommandHandler("scalp_on", scalp_on))
     app.add_handler(CommandHandler("scalp_off", scalp_off))
     app.add_handler(CommandHandler("scalp_status", scalp_status))
