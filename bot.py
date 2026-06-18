@@ -1229,6 +1229,21 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         current_price = closes[-1]
         previous_close = closes[-2]
+        current_price = closes[-1]
+        previous_close = closes[-2]
+
+        recent_high = max(closes[-20:])
+        recent_low = min(closes[-20:])
+
+        breakout = "🟡 Yok"
+
+        if current_price >= recent_high * 0.999:
+            breakout = "🚀 Yukarı Kırılım"
+
+        elif current_price <= recent_low * 1.001:
+            breakout = "🔴 Aşağı Kırılım"
+
+        last_momentum = ((current_price - previous_close) / previous_close) * 100
 
         rsi = calculate_rsi(closes)
         ema9 = calculate_ema(closes, 9)
@@ -1240,7 +1255,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         volume_change = calculate_volume_change(candles)
         timeframe_confirmations = get_scalp_timeframe_confirmations(symbol)
 
-        last_momentum = ((current_price - previous_close) / previous_close) * 100
+        
 
         score = 0
         reasons = []
