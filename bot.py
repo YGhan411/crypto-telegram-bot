@@ -202,11 +202,13 @@ def analyze_scalp_timeframe(symbol, interval):
 
         closes = [c["close"] for c in candles]
 
+        rsi = calculate_rsi(closes)
         ema9 = calculate_ema(closes, 9)
         ema21 = calculate_ema(closes, 21)
         ema50 = calculate_ema(closes, 50)
         ema200 = calculate_ema(closes, 200)
         macd = calculate_macd(closes)
+        volume_change = calculate_volume_change(candles)
 
         if ema9 is None or ema21 is None or macd is None:
             return "⚪ Veri Yok"
