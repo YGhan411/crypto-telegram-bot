@@ -1289,8 +1289,10 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reasons_text = "\n".join(f"• {r}" for r in reasons)
 
         text = (
-            "⚡ SCALP ANALİZİ\n"
+            "⚡ SCALP PRO\n"
             "━━━━━━━━━━━━━━\n\n"
+            f"🔥 SETUP GÜCÜ: %{setup_power}\n"
+            f"{setup_label}\n\n"
             f"🪙 {symbol}USDT\n"
             f"⏱️ Zaman Dilimi: 15m\n"
             f"📌 Yön: {direction}\n\n"
@@ -1486,6 +1488,23 @@ async def trade_scan(context: ContextTypes.DEFAULT_TYPE):
             if ema20 > ema50:
                 score += 3
                 reasons.append("EMA20 > EMA50")
+            positive_tf = 0
+
+            for trend in timeframe_confirmations.values():
+                if trend == "🟢 Pozitif":
+                    positive_tf += 1
+
+            if positive_tf == 3:
+                score += 3
+                reasons.append("Tüm zaman dilimleri uyumlu")
+
+            elif positive_tf == 2:
+                score += 2
+                reasons.append("Zaman dilimlerinin çoğu pozitif")
+
+            elif positive_tf == 1:
+                score += 1
+                reasons.append("Bir zaman dilimi pozitif")
 
             if macd > 0:
                 score += 2
@@ -1500,6 +1519,19 @@ async def trade_scan(context: ContextTypes.DEFAULT_TYPE):
                 reasons.append("Hacim güçlü")
 
             score = min(score, 10)
+            setup_power = score * 10
+
+            if setup_power >= 90:
+                setup_label = "🏆 A+ KURUMSAL LONG"
+
+            elif setup_power >= 80:
+                setup_label = "🔥 GÜÇLÜ LONG"
+
+            elif setup_power >= 60:
+                setup_label = "🟢 LONG İZLE"
+
+            else:
+                setup_label = "🟡 BEKLE"
 
             if score < 7:
                 continue
