@@ -1160,53 +1160,7 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         reasons_text = "\n".join(f"• {r}" for r in reasons)
 
-        text = (
-            "🚨 SMART TRADE PRO\n"
-            "━━━━━━━━━━━━━━\n\n"
-            "📊 ANALİZ ÖZETİ\n"
-            "━━━━━━━━━━━━━━\n"
-            f"🪙 {coin['name']} ({coin['symbol'].upper()})\n"
-            f"📌 Yön: {direction}\n"
-            f"📌 Setup: {setup_type}\n"
-            f"📈 Market Structure: {market_structure}\n"
-            f"💧 Liquidity Sweep: {liquidity_sweep}\n"
-            f"🧠 Güven: %{confidence} - {confidence_label}\n\n"
-            "🎯 İŞLEM PLANI\n"
-            "━━━━━━━━━━━━━━\n"
-            f"💰 Giriş: ${current_price:,.4f}\n"
-            f"📉 Destek: ${support:,.4f}\n"
-            f"📈 Direnç: ${resistance:,.4f}\n"
-            f"🎯 Hedef 1: ${levels['target1']:,.4f}\n"
-            f"🎯 Hedef 2: ${levels['target2']:,.4f}\n"
-            f"🛑 Stop: ${levels['stop']:,.4f}\n"
-            f"📏 ATR: ${levels['atr']:,.4f}\n"
-            f"📊 Risk/Ödül: 1:{levels['rr']:.2f}\n\n"
-            "📐 FİBONACCİ\n"
-            "━━━━━━━━━━━━━━\n"
-            f"0.236 ➜ ${fib['fib_236']:,.4f}\n"
-            f"0.382 ➜ ${fib['fib_382']:,.4f}\n"
-            f"0.500 ➜ ${fib['fib_500']:,.4f}\n"
-            f"0.618 ➜ ${fib['fib_618']:,.4f}\n"
-            f"0.786 ➜ ${fib['fib_786']:,.4f}\n"
-            f"⬇️ Swing Low: ${fib['swing_low']:,.4f}\n"
-            f"⬆️ Swing High: ${fib['swing_high']:,.4f}\n"
-            f"📍 Bölge: {fibo_zone}\n"
-            f"🧠 Yorum: {fibo_comment}\n\n"
-            "🧠 ONAYLAR\n"
-            "━━━━━━━━━━━━━━\n"
-            f"⭐ Teknik Skor: {score}/10\n"
-            f"🏆 İşlem Kalitesi: {quality}\n"
-            f"🐋 Kurumsal Para Girişi: {institutional_flow}\n\n"
-            "📊 ÇOKLU ZAMAN DİLİMİ\n"
-            "━━━━━━━━━━━━━━\n"
-            f"1H ➜ {timeframes['1H']}\n"
-            f"4H ➜ {timeframes['4H']}\n"
-            f"1D ➜ {timeframes['1D']}\n\n"
-            "📝 SİNYAL NEDENLERİ\n"
-            "━━━━━━━━━━━━━━\n"
-            f"{reasons_text}\n\n"
-            "⚠️ Bu finansal tavsiye değildir."
-        )
+    
 
         await update.message.reply_text(text)
 
@@ -3112,7 +3066,7 @@ def main():
     app.add_handler(CommandHandler("trade_scan_on", trade_scan_on))
     app.add_handler(CommandHandler("trade_scan_off", trade_scan_off))
     app.add_handler(CommandHandler("trade_scan_status", trade_scan_status))
-    app.add_handler(CommandHandler("scalp", scalp))
+    # app.add_handler(CommandHandler("scalp", scalp))
     app.add_handler(CommandHandler("scalp_on", scalp_on))
     app.add_handler(CommandHandler("scalp_off", scalp_off))
     app.add_handler(CommandHandler("scalp_status", scalp_status))
