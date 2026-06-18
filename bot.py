@@ -1233,7 +1233,10 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rsi = calculate_rsi(closes)
         ema9 = calculate_ema(closes, 9)
         ema21 = calculate_ema(closes, 21)
+        ema50 = calculate_ema(closes, 50)
+        ema200 = calculate_ema(closes, 200)
         macd = calculate_macd(closes)
+
         volume_change = calculate_volume_change(candles)
         timeframe_confirmations = get_scalp_timeframe_confirmations(symbol)
 
