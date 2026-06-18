@@ -1282,10 +1282,21 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             direction = "BEKLE"
 
+        setup_power = score * 10
+
+        if setup_power >= 90:
+            setup_label = "🏆 A+ KURUMSAL LONG"
+        elif setup_power >= 80:
+            setup_label = "🔥 GÜÇLÜ LONG"
+        elif setup_power >= 60:
+            setup_label = "🟢 LONG İZLE"
+        else:
+            setup_label = "🟡 BEKLE"
+
         stop = current_price * 0.995
         target1 = current_price * 1.006
-        target2 = current_price * 1.012
-
+        target2 = current_price * 1.012        
+        
         reasons_text = "\n".join(f"• {r}" for r in reasons)
 
         text = (
