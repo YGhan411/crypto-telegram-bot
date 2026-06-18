@@ -1305,6 +1305,12 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reasons.append("Hacimde hafif artış")
 
         score = min(score, 10)
+        if breakout == "🚀 Yukarı Kırılım":
+            score += 2
+            reasons.append("Son 20 mum direnci kırılıyor")
+
+        elif breakout == "🔴 Aşağı Kırılım":
+            reasons.append("Son 20 mum desteği aşağı kırılıyor")
 
         if score >= 8:
             direction = "GÜÇLÜ LONG"
@@ -1351,6 +1357,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"⏱️ Zaman Dilimi: 15m\n"
             f"📌 Yön: {direction}\n\n"
             f"📈 EMA Ribbon: {ribbon}\n\n"
+            f"💥 Breakout: {breakout}\n\n"
 
             f"💰 Fiyat: ${current_price:,.4f}\n"
             f"🎯 Hedef 1: ${target1:,.4f}\n"
