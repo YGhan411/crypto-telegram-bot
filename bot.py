@@ -16,6 +16,7 @@ whale_v2_memory = {}
 whale_v2_cooldown = {}
 ta_cooldown = {}
 trade_scan_cooldown = {}
+scalp_cooldown = {}
 price_cache = {}
 
 if not BOT_TOKEN:
@@ -262,6 +263,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/trade_scan_off\n"
         "/trade_scan_status\n"
         "/scalp btc\n"
+        "/scalp_on\n"
+        "/scalp_off\n"
+        "/scalp_status\n"
     )
 
 
@@ -1211,7 +1215,251 @@ async def trade(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"TRADE HATASI:\n{type(e).__name__}\n{e}"
         )
 
-async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.chat_id
+
+    symbols = ["BTC", "ETH", "SOL", "XRP", "DOGE", "SUI", "LINK", "AVAX"]
+
+    try:
+        global scalp_cooldown
+
+        alerts = []
+
+        for symbol in symbols:
+            candles = get_bybit_klines(symbol, interval="15", limit=100)
+
+            if len(candles) < 50:
+                continue
+
+            closes = [c["close"] for c in candles]
+
+            current_price = closes[-1]
+            previous_close = closes[-2]
+
+            recent_high = max(closes[-20:])
+            recent_low = min(closes[-20:])
+
+            breakout = "🟡 Yok"
+
+            if current_price >= recent_high * 0.999:
+                breakout = "🚀 Yukarı Kırılım"
+            elif current_price <= recent_low * 1.001:
+                breakout = "🔴 Aşağı Kırılım"
+
+            rsi = calculate_rsi(closes)
+            ema9 = calculate_ema(closes, 9)
+            ema21 = calculate_ema(closes, 21)
+            ema50 = calculate_ema(closes, 50)
+            ema200 = calculate_ema(closes, 200)
+            macd = calculate_macd(closes)
+            volume_change = calculate_volume_change(candles)
+            timeframe_confirmations = get_scalp_timeframe_confirmations(symbol)
+
+            if rsi is None or ema9 is None or ema21 is None or macd is None:
+                continue
+
+            last_momentum = ((current_price - previous_close) / previous_close) * 100
+
+            score = 0
+            reasons = []
+
+            if 45 <= rsi <= 68:
+                score += 2
+                reasons.append("RSI scalp için sağlıklı")
+            elif 35 <= rsi < 45:
+                score += 1
+                reasons.append("RSI toparlanma bölgesinde")
+
+            if ema9 and ema21 and ema50 and ema200:
+                if ema9 > ema21 > ema50 > ema200:
+                    score += 4
+                    reasons.append("EMA Ribbon tamamen bullish")
+                    ribbon = "🟢 Mükemmel"
+                elif ema9 > ema21 > ema50:
+                    score += 3
+                    reasons.append("EMA Ribbon güçlü")
+                    ribbon = "🟢 Güçlü"
+                elif ema9 > ema21:
+                    score += 2
+                    reasons.append("Kısa vadeli EMA bullish")
+                    ribbon = "🟡 Orta"
+                else:
+                    ribbon = "🔴 Zayıf"
+            else:
+                ribbon = "⚪ Veri Yok"
+
+            if macd > 0:
+                score += 2
+                reasons.append("MACD pozitif")
+
+            if last_momentum > 0:
+                score += 1
+                reasons.append("Son mum pozitif")
+
+            if volume_change >= 20:
+                score += 2
+                reasons.append("Hacim ortalamanın üstünde")
+            elif volume_change >= 5:
+                score += 1
+                reasons.append("Hacimde hafif artış")
+
+            positive_tf = 0
+
+            for trend in timeframe_confirmations.values():
+                if trend == "🟢 Pozitif":
+                    positive_tf += 1
+
+            if positive_tf == 3:
+                score += 3
+                reasons.append("Tüm zaman dilimleri uyumlu")
+            elif positive_tf == 2:
+                score += 2
+                reasons.append("Zaman dilimlerinin çoğu pozitif")
+            elif positive_tf == 1:
+                score += 1
+                reasons.append("Bir zaman dilimi pozitif")
+
+            if breakout == "🚀 Yukarı Kırılım":
+                score += 2
+                reasons.append("Son 20 mum direnci kırılıyor")
+            elif breakout == "🔴 Aşağı Kırılım":
+                reasons.append("Son 20 mum desteği aşağı kırılıyor")
+
+            score = min(score, 10)
+            setup_power = score * 10
+
+            if setup_power < 80:
+                continue
+
+            now = time.time()
+            last_alert_time = scalp_cooldown.get(symbol, 0)
+            cooldown_seconds = 45 * 60
+
+            if now - last_alert_time < cooldown_seconds:
+                continue
+
+            if setup_power >= 90:
+                setup_label = "🏆 A+ SCALP SETUP"
+            else:
+                setup_label = "🔥 GÜÇLÜ SCALP SETUP"
+
+            stop = current_price * 0.995
+            target1 = current_price * 1.006
+            target2 = current_price * 1.012
+
+            alerts.append({
+                "symbol": symbol,
+                "price": current_price,
+                "score": score,
+                "setup_power": setup_power,
+                "setup_label": setup_label,
+                "ribbon": ribbon,
+                "breakout": breakout,
+                "rsi": rsi,
+                "volume_change": volume_change,
+                "momentum": last_momentum,
+                "stop": stop,
+                "target1": target1,
+                "target2": target2,
+                "timeframes": timeframe_confirmations,
+                "reasons": reasons[:5]
+            })
+
+            scalp_cooldown[symbol] = now
+
+        alerts = sorted(alerts, key=lambda x: x["setup_power"], reverse=True)[:3]
+
+        if not alerts:
+            return
+
+        text = "⚡ SCALP PRO TARAMA SİNYALİ\n━━━━━━━━━━━━━━\n\n"
+
+        for coin in alerts:
+            reasons_text = "\n".join(f"• {r}" for r in coin["reasons"])
+
+            text += (
+                f"🔥 SETUP GÜCÜ: %{coin['setup_power']}\n"
+                f"{coin['setup_label']}\n\n"
+                f"🪙 {coin['symbol']}USDT\n"
+                f"⏱️ Zaman Dilimi: 15m\n"
+                f"💰 Fiyat: ${coin['price']:,.4f}\n"
+                f"🎯 Hedef 1: ${coin['target1']:,.4f}\n"
+                f"🎯 Hedef 2: ${coin['target2']:,.4f}\n"
+                f"🛑 Stop: ${coin['stop']:,.4f}\n\n"
+                f"📈 EMA Ribbon: {coin['ribbon']}\n"
+                f"💥 Breakout: {coin['breakout']}\n"
+                f"RSI: {coin['rsi']:.2f}\n"
+                f"📊 Hacim Değişimi: %{coin['volume_change']:.2f}\n"
+                f"📈 Son Mum Momentum: %{coin['momentum']:.2f}\n\n"
+                f"📊 Zaman Dilimi Onayı:\n"
+                f"5m ➜ {coin['timeframes']['5m']}\n"
+                f"15m ➜ {coin['timeframes']['15m']}\n"
+                f"1H ➜ {coin['timeframes']['1H']}\n\n"
+                f"🧠 Sebep:\n{reasons_text}\n\n"
+            )
+
+        text += "⚠️ Bu finansal tavsiye değildir."
+
+        await context.bot.send_message(chat_id=chat_id, text=text)
+
+    except Exception as e:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"Scalp scan hatası:\n{type(e).__name__}\n{e}"
+        )
+
+
+async def scalp_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    for job in context.job_queue.get_jobs_by_name(f"scalp_{chat_id}"):
+        job.schedule_removal()
+
+    context.job_queue.run_repeating(
+        scalp_scan,
+        interval=300,
+        first=20,
+        chat_id=chat_id,
+        name=f"scalp_{chat_id}"
+    )
+
+    await update.message.reply_text(
+        "✅ Scalp tarayıcı açıldı.\n\n"
+        "Bot her 5 dakikada bir güçlü kısa zaman dilimi fırsatlarını tarayacak."
+    )
+
+
+async def scalp_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"scalp_{chat_id}")
+
+    if not jobs:
+        await update.message.reply_text("Aktif scalp tarayıcı yok.")
+        return
+
+    for job in jobs:
+        job.schedule_removal()
+
+    await update.message.reply_text("🛑 Scalp tarayıcı kapatıldı.")
+
+
+async def scalp_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    jobs = context.job_queue.get_jobs_by_name(f"scalp_{chat_id}")
+    status = "🟢 Aktif" if jobs else "🔴 Kapalı"
+
+    text = (
+        "⚡ SCALP TARAMA DURUMU\n\n"
+        f"Durum: {status}\n"
+        f"⏳ Cooldown'daki Coin: {len(scalp_cooldown)}\n"
+        f"🔄 Tarama Aralığı: 5 Dakika\n"
+        f"🛡️ Cooldown Süresi: 45 Dakika\n"
+        f"📌 Filtre: Setup Gücü %80+"
+    )
+
+    await update.message.reply_text(text)
     if not context.args:
         await update.message.reply_text("Örnek kullanım:\n/scalp btc")
         return
@@ -1501,6 +1749,7 @@ def detect_market_structure(prices, lookback=48):
 
     else:
         return "🟡 Range / Yapı Belirsiz"
+
 async def trade_scan(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
 
@@ -2864,6 +3113,9 @@ def main():
     app.add_handler(CommandHandler("trade_scan_off", trade_scan_off))
     app.add_handler(CommandHandler("trade_scan_status", trade_scan_status))
     app.add_handler(CommandHandler("scalp", scalp))
+    app.add_handler(CommandHandler("scalp_on", scalp_on))
+    app.add_handler(CommandHandler("scalp_off", scalp_off))
+    app.add_handler(CommandHandler("scalp_status", scalp_status))
 
 
     print("✅ Bot çalışıyor...")
