@@ -204,6 +204,8 @@ def analyze_scalp_timeframe(symbol, interval):
 
         ema9 = calculate_ema(closes, 9)
         ema21 = calculate_ema(closes, 21)
+        ema50 = calculate_ema(closes, 50)
+        ema200 = calculate_ema(closes, 200)
         macd = calculate_macd(closes)
 
         if ema9 is None or ema21 is None or macd is None:
@@ -1248,13 +1250,22 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif rsi > 75:
                 reasons.append("RSI aşırı ısınmış")
 
-        if ema9 and ema21:
-            if ema9 > ema21:
-                score += 3
-                reasons.append("EMA9 > EMA21")
-            else:
-                reasons.append("EMA9 < EMA21")
+        if ema9 and ema21 and ema50 and ema200:
 
+            if ema9 > ema21 > ema50 > ema200:
+                score += 4
+                reasons.append("EMA Ribbon tamamen bullish")
+
+            elif ema9 > ema21 > ema50:
+                score += 3
+                reasons.append("EMA Ribbon güçlü")
+
+            elif ema9 > ema21:
+                score += 2
+                reasons.append("Kısa vadeli EMA bullish")
+
+            else:
+                reasons.append("EMA Ribbon zayıf")
         if macd is not None:
             if macd > 0:
                 score += 2
@@ -1307,6 +1318,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🪙 {symbol}USDT\n"
             f"⏱️ Zaman Dilimi: 15m\n"
             f"📌 Yön: {direction}\n\n"
+            f"📈 EMA Ribbon: {ribbon}\n\n"
 
             f"💰 Fiyat: ${current_price:,.4f}\n"
             f"🎯 Hedef 1: ${target1:,.4f}\n"
