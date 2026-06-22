@@ -3299,6 +3299,7 @@ def main():
     app.add_handler(CommandHandler("scalp_on", scalp_on))
     app.add_handler(CommandHandler("scalp_off", scalp_off))
     app.add_handler(CommandHandler("scalp_status", scalp_status))
+    app.add_handler(CommandHandler("scalp_radar", scalp_radar))
                 
 
 
