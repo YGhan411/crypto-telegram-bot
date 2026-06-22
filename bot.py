@@ -1278,11 +1278,47 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
                 reasons.append("Son 20 mum direnci kırılıyor")
             elif breakout == "🔴 Aşağı Kırılım":
                 reasons.append("Son 20 mum desteği aşağı kırılıyor")
+            long_score = 0
+            short_score = 0
 
+            if ema9 and ema21 and ema50:
+                if ema9 > ema21 > ema50:
+                    long_score += 3
+                elif ema9 < ema21 < ema50:
+                    short_score += 3
+
+            if macd is not None:
+                if macd > 0:
+                   long_score += 2
+                elif macd < 0:
+                   short_score += 2
+
+            if breakout == "🚀 Yukarı Kırılım":
+                   long_score += 2
+            elif breakout == "🔴 Aşağı Kırılım":
+                   short_score += 2
+
+            if last_momentum > 0:
+                   long_score += 1
+            elif last_momentum < 0:
+                   short_score += 1
+
+            if long_score >= short_score + 2:
+                   signal_side = "🟢 LONG"
+            elif short_score >= long_score + 2:
+                   signal_side = "🔴 SHORT"
+            else:
+                   signal_side = "🟡 NÖTR"
             score = min(score, 10)
             setup_power = score * 10
 
-            if setup_power < 80:
+            if setup_power < 90:
+                continue
+
+            if signal_side == "🟡 NÖTR":
+                continue
+
+            if ribbon not in ["🟢 Mükemmel", "🟢 Güçlü"]:
                 continue
 
             now = time.time()
@@ -1307,6 +1343,7 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
                 "score": score,
                 "setup_power": setup_power,
                 "setup_label": setup_label,
+                "signal_side": signal_side,
                 "ribbon": ribbon,
                 "breakout": breakout,
                 "rsi": rsi,
@@ -2161,6 +2198,7 @@ async def volume_spike_scan(context: ContextTypes.DEFAULT_TYPE):
                 f"🔥 Artış Oranı: %{coin['spike_percent']:.2f}\n"
                 f"⭐ Sinyal Gücü: {coin['signal_score']}/10\n"
                 f"📌 Durum: {coin['signal_status']}\n\n"
+                f"📌 Sinyal Yönü: {coin['signal_side']}\n"
             )
 
         text += "⚠️ Bu finansal tavsiye değildir."
@@ -3122,6 +3160,7 @@ def main():
     app.add_handler(CommandHandler("scalp_on", scalp_on))
     app.add_handler(CommandHandler("scalp_off", scalp_off))
     app.add_handler(CommandHandler("scalp_status", scalp_status))
+                
 
 
     print("✅ Bot çalışıyor...")
