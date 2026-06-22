@@ -1199,6 +1199,7 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
                 breakout = "🚀 Yukarı Kırılım"
             elif current_price <= recent_low * 1.001:
                 breakout = "🔴 Aşağı Kırılım"
+            market_structure = detect_scalp_market_structure(closes)
 
             rsi = calculate_rsi(closes)
             ema9 = calculate_ema(closes, 9)
@@ -1649,6 +1650,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📌 Durum: {direction}\n\n"
             f"📈 EMA Ribbon: {ribbon}\n\n"
             f"💥 Breakout: {breakout}\n\n"
+            f"📈 Market Structure: {market_structure}\n\n"
 
             f"💰 Fiyat: ${current_price:,.4f}\n"
             f"🎯 Hedef 1: ${target1:,.4f}\n"
