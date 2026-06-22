@@ -1513,10 +1513,48 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif breakout == "🔴 Aşağı Kırılım":
             reasons.append("Son 20 mum desteği aşağı kırılıyor")
 
+        long_score = 0
+        short_score = 0
+
+        if ema9 and ema21:
+            if ema9 > ema21:
+                long_score += 2
+            elif ema9 < ema21:
+                short_score += 2
+
+        if macd is not None:
+            if macd > 0:
+                long_score += 2
+            elif macd < 0:
+                short_score += 2
+
+        if rsi is not None:
+            if 45 <= rsi <= 70:
+                long_score += 1
+            elif 30 <= rsi <= 55:
+                short_score += 1
+
+        if breakout == "🚀 Yukarı Kırılım":
+            long_score += 2
+        elif breakout == "🔴 Aşağı Kırılım":
+            short_score += 2
+
+        if last_momentum > 0:
+            long_score += 1
+        elif last_momentum < 0:
+            short_score += 1
+
+        if long_score > short_score:
+            signal_side = "🟢 LONG"
+        elif short_score > long_score:
+            signal_side = "🔴 SHORT"
+        else:
+            signal_side = "🟡 NÖTR"
+
         if score >= 8:
-            direction = "GÜÇLÜ LONG"
+            direction = f"GÜÇLÜ {signal_side}"
         elif score >= 6:
-            direction = "LONG İZLE"
+            direction = f"{signal_side} İZLE"
         else:
             direction = "BEKLE"
 
@@ -1556,7 +1594,8 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{setup_label}\n\n"
             f"🪙 {symbol}USDT\n"
             f"⏱️ Zaman Dilimi: 15m\n"
-            f"📌 Yön: {direction}\n\n"
+            f"📌 Sinyal Yönü: {signal_side}\n"
+            f"📌 Durum: {direction}\n\n"
             f"📈 EMA Ribbon: {ribbon}\n\n"
             f"💥 Breakout: {breakout}\n\n"
 
