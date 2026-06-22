@@ -1516,11 +1516,11 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         long_score = 0
         short_score = 0
 
-        if ema9 and ema21:
-            if ema9 > ema21:
-                long_score += 2
-            elif ema9 < ema21:
-                short_score += 2
+        if ema9 and ema21 and ema50:
+            if ema9 > ema21 > ema50:
+                long_score += 3
+            elif ema9 < ema21 < ema50:
+                short_score += 3
 
         if macd is not None:
             if macd > 0:
@@ -1544,13 +1544,27 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif last_momentum < 0:
             short_score += 1
 
-        if long_score > short_score:
+        positive_tf = 0
+        negative_tf = 0
+
+        for trend in timeframe_confirmations.values():
+            if trend == "🟢 Pozitif":
+                positive_tf += 1
+            elif trend == "🔴 Negatif":
+                negative_tf += 1
+
+        if positive_tf >= 2:
+            long_score += 2
+
+        if negative_tf >= 2:
+            short_score += 2
+
+        if long_score >= short_score + 2:
             signal_side = "🟢 LONG"
-        elif short_score > long_score:
+        elif short_score >= long_score + 2:
             signal_side = "🔴 SHORT"
         else:
             signal_side = "🟡 NÖTR"
-
         if score >= 8:
             direction = f"GÜÇLÜ {signal_side}"
         elif score >= 6:
