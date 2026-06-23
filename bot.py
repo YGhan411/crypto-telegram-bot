@@ -1741,27 +1741,26 @@ async def scalp_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif current_price <= recent_low * 1.001:
                 breakout = "🔴 Aşağı Kırılım"
 
-            last_momentum = (
-                (current_price - previous_close)
-                / previous_close
-            ) * 100
-            rsi = calculate_rsi(closes)
-            ema9 = calculate_ema(closes, 9)
-            ema21 = calculate_ema(closes, 21)
-            ema50 = calculate_ema(closes, 50)
-            macd = calculate_macd(closes)
+        market_structure = detect_scalp_market_structure(closes)
 
-            score = 0
-            long_score = 0
-            short_score = 0
-            if ema9 and ema21 and ema50:
-                if ema9 > ema21 > ema50:
-                    score += 3
-                    long_score += 3
+        last_momentum = ((current_price - previous_close) / previous_close) * 100
+        rsi = calculate_rsi(closes)
+        ema9 = calculate_ema(closes, 9)
+        ema21 = calculate_ema(closes, 21)
+        ema50 = calculate_ema(closes, 50)
+        macd = calculate_macd(closes)
 
-                elif ema9 < ema21 < ema50:
-                    score += 3
-                    short_score += 3
+        score = 0
+        long_score = 0
+        short_score = 0
+        if ema9 and ema21 and ema50:
+            if ema9 > ema21 > ema50:
+                score += 3
+                long_score += 3
+
+            elif ema9 < ema21 < ema50:
+                score += 3
+                short_score += 3
 
             if macd is not None:
                 if macd > 0:
