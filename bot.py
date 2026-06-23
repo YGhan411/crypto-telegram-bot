@@ -1199,7 +1199,13 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
                 breakout = "🚀 Yukarı Kırılım"
             elif current_price <= recent_low * 1.001:
                 breakout = "🔴 Aşağı Kırılım"
+
             market_structure = detect_scalp_market_structure(closes)
+
+            last_momentum = (
+                (current_price - previous_close)
+                / previous_close
+            ) * 100
 
             rsi = calculate_rsi(closes)
             ema9 = calculate_ema(closes, 9)
@@ -1213,11 +1219,8 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
             if rsi is None or ema9 is None or ema21 is None or macd is None:
                 continue
 
-            last_momentum = ((current_price - previous_close) / previous_close) * 100
-
             score = 0
             reasons = []
-
             if 45 <= rsi <= 68:
                 score += 2
                 reasons.append("RSI scalp için sağlıklı")
