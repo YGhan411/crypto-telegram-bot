@@ -1477,6 +1477,7 @@ async def scalp_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("DEBUG SCALP V2 ÇALIŞIYOR")
     if not context.args:
         await update.message.reply_text("Örnek kullanım:\n/scalp btc")
         return
