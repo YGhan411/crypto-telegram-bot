@@ -1202,10 +1202,7 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
 
             market_structure = detect_scalp_market_structure(closes)
 
-            last_momentum = (
-                (current_price - previous_close)
-                / previous_close
-            ) * 100
+            last_momentum = ((current_price - previous_close) / previous_close) * 100
 
             rsi = calculate_rsi(closes)
             ema9 = calculate_ema(closes, 9)
@@ -1218,6 +1215,7 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
 
             if rsi is None or ema9 is None or ema21 is None or macd is None:
                 continue
+           
 
             score = 0
             reasons = []
@@ -1707,21 +1705,12 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
 async def scalp_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    symbols = [
-        "BTC", "ETH", "SOL",
-        "XRP", "DOGE", "SUI",
-        "LINK", "AVAX"
-    ]
-
+    symbols = ["BTC", "ETH", "SOL", "XRP", "DOGE", "SUI", "LINK", "AVAX"]
     radar = []
 
     try:
         for symbol in symbols:
-            candles = get_bybit_klines(
-                symbol,
-                interval="15",
-                limit=100
-            )
+            candles = get_bybit_klines(symbol, interval="15", limit=100)
 
             if len(candles) < 50:
                 continue
@@ -1730,6 +1719,7 @@ async def scalp_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             current_price = closes[-1]
             previous_close = closes[-2]
+
             recent_high = max(closes[-20:])
             recent_low = min(closes[-20:])
 
@@ -1737,52 +1727,63 @@ async def scalp_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             if current_price >= recent_high * 0.999:
                 breakout = "🚀 Yukarı Kırılım"
-
             elif current_price <= recent_low * 1.001:
                 breakout = "🔴 Aşağı Kırılım"
 
-        market_structure = detect_scalp_market_structure(closes)
+            market_structure = detect_scalp_market_structure(closes)
 
-        last_momentum = ((current_price - previous_close) / previous_close) * 100
-        rsi = calculate_rsi(closes)
-        ema9 = calculate_ema(closes, 9)
-        ema21 = calculate_ema(closes, 21)
-        ema50 = calculate_ema(closes, 50)
-        macd = calculate_macd(closes)
+            last_momentum = ((current_price - previous_close) / previous_close) * 100
 
-        score = 0
-        long_score = 0
-        short_score = 0
-        if ema9 and ema21 and ema50:
-            if ema9 > ema21 > ema50:
-                score += 3
-                long_score += 3
+            rsi = calculate_rsi(closes)
+            ema9 = calculate_ema(closes, 9)
+            ema21 = calculate_ema(closes, 21)
+            ema50 = calculate_ema(closes, 50)
+            macd = calculate_macd(closes)
 
-            elif ema9 < ema21 < ema50:
-                score += 3
-                short_score += 3
+            score = 0
+            long_score = 0
+            short_score = 0
+
+            if ema9 and ema21 and ema50:
+                if ema9 > ema21 > ema50:
+                    score += 3
+                    long_score += 3
+                elif ema9 < ema21 < ema50:
+                    score += 3
+                    short_score += 3
 
             if macd is not None:
                 if macd > 0:
                     score += 2
                     long_score += 2
-
                 elif macd < 0:
                     score += 2
                     short_score += 2
+
             if rsi is not None:
                 if 45 <= rsi <= 70:
                     score += 1
                     long_score += 1
-
                 elif 30 <= rsi <= 55:
                     score += 1
                     short_score += 1
 
+            if market_structure == "🟢 Bullish BOS":
+                score += 2
+                long_score += 2
+            elif market_structure == "🔴 Bearish BOS":
+                score += 2
+                short_score += 2
+            elif market_structure == "🟢 Bullish CHoCH":
+                score += 3
+                long_score += 3
+            elif market_structure == "🔴 Bearish CHoCH":
+                score += 3
+                short_score += 3
+
             if breakout == "🚀 Yukarı Kırılım":
                 score += 2
                 long_score += 2
-
             elif breakout == "🔴 Aşağı Kırılım":
                 score += 2
                 short_score += 2
@@ -1790,38 +1791,34 @@ async def scalp_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if last_momentum > 0:
                 score += 1
                 long_score += 1
-
             elif last_momentum < 0:
                 score += 1
                 short_score += 1
+
             score = min(score, 10)
             setup_power = score * 10
 
             if long_score >= short_score + 2:
                 signal_side = "🟢 LONG"
-
             elif short_score >= long_score + 2:
                 signal_side = "🔴 SHORT"
-
             else:
                 signal_side = "🟡 NÖTR"
 
             radar.append({
                 "symbol": symbol,
                 "signal": signal_side,
-                "power": setup_power
-            })    
-        radar = sorted(
-            radar,
-            key=lambda x: x["power"],
-            reverse=True
-        )[:3]
+                "power": setup_power,
+                "structure": market_structure,
+                "breakout": breakout
+            })
+
+        radar = sorted(radar, key=lambda x: x["power"], reverse=True)[:3]
 
         if not radar:
-            await update.message.reply_text(
-                "Radar için veri bulunamadı."
-            )
+            await update.message.reply_text("Radar için veri bulunamadı.")
             return
+
         medals = ["🥇", "🥈", "🥉"]
 
         text = "📡 SCALP RADAR\n"
@@ -1829,20 +1826,19 @@ async def scalp_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         for i, coin in enumerate(radar):
             text += (
-                f"{medals[i]} "
-                f"{coin['symbol']}USDT | "
-                f"{coin['signal']} | "
-                f"%{coin['power']}\n"
+                f"{medals[i]} {coin['symbol']}USDT\n"
+                f"📌 Yön: {coin['signal']}\n"
+                f"🔥 Güç: %{coin['power']}\n"
+                f"📈 Structure: {coin['structure']}\n"
+                f"💥 Breakout: {coin['breakout']}\n\n"
             )
 
         await update.message.reply_text(text)
+
     except Exception as e:
         await update.message.reply_text(
-            f"RADAR HATASI:\n"
-            f"{type(e).__name__}\n"
-            f"{e}"
+            f"RADAR HATASI:\n{type(e).__name__}\n{e}"
         )
-
 def calculate_fibonacci_levels(prices):
     if len(prices) < 20:
         return None
