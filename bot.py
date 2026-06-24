@@ -194,6 +194,29 @@ def calculate_volume_change(candles, period=20):
         return 0
 
     return ((recent_volume - avg_volume) / avg_volume) * 100
+def calculate_atr(candles, period=14):
+    if len(candles) < period + 1:
+        return None
+
+    true_ranges = []
+
+    for i in range(1, len(candles)):
+        high = candles[i]["high"]
+        low = candles[i]["low"]
+        prev_close = candles[i - 1]["close"]
+
+        tr = max(
+            high - low,
+            abs(high - prev_close),
+            abs(low - prev_close)
+        )
+        true_ranges.append(tr)
+
+    if len(true_ranges) < period:
+        return None
+
+    atr_values = true_ranges[-period:]
+    return sum(atr_values) / len(atr_values)
 def analyze_scalp_timeframe(symbol, interval):
     try:
         candles = get_bybit_klines(symbol, interval=interval, limit=100)
@@ -1211,6 +1234,7 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
             ema200 = calculate_ema(closes, 200)
             macd = calculate_macd(closes)
             volume_change = calculate_volume_change(candles)
+            atr = calculate_atr(candles)
             timeframe_confirmations = get_scalp_timeframe_confirmations(symbol)
 
             if rsi is None or ema9 is None or ema21 is None or macd is None:
@@ -1647,9 +1671,22 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             setup_label = "🟡 BEKLE"
 
-        stop = current_price * 0.995
-        target1 = current_price * 1.006
-        target2 = current_price * 1.012 
+        if atr is None:
+            stop = current_price * 0.995
+            target1 = current_price * 1.006
+            target2 = current_price * 1.012
+            rr = 1.5
+        else:
+            if signal_side == "🔴 SHORT":
+                stop = current_price + (atr * 1.2)
+                target1 = current_price - (atr * 1.5)
+                target2 = current_price - (atr * 2.5)
+                rr = (current_price - target2) / (stop - current_price)
+            else:
+                stop = current_price - (atr * 1.2)
+                target1 = current_price + (atr * 1.5)
+                target2 = current_price + (atr * 2.5)
+                rr = (target2 - current_price) / (current_price - stop)
 
         if ema9 and ema21 and ema50 and ema200:
             if ema9 > ema21 > ema50 > ema200:
@@ -1681,6 +1718,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🎯 Hedef 1: ${target1:,.4f}\n"
             f"🎯 Hedef 2: ${target2:,.4f}\n"
             f"🛑 Stop: ${stop:,.4f}\n\n"
+            f"📊 Risk/Ödül: 1:{rr:.2f}\n\n"
 
             f"RSI: {rsi:.2f}\n"
             f"EMA9: ${ema9:,.4f}\n"
