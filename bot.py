@@ -1364,9 +1364,18 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
 
             if setup_power < 90:
                 continue
+           
+            if signal_side == "🟢 LONG":
+                if market_structure not in ["🟢 Bullish BOS", "🟢 Bullish CHoCH"]:
+                    continue
 
-            if signal_side == "🟡 NÖTR":
+            elif signal_side == "🔴 SHORT":
+                if market_structure not in ["🔴 Bearish BOS", "🔴 Bearish CHoCH"]:
+                    continue
+
+            else:
                 continue
+
 
             if ribbon not in ["🟢 Mükemmel", "🟢 Güçlü"]:
                 continue            
@@ -1382,9 +1391,22 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
             else:
                 setup_label = "🔥 GÜÇLÜ SCALP SETUP"
 
-            stop = current_price * 0.995
-            target1 = current_price * 1.006
-            target2 = current_price * 1.012
+            if atr is None:
+                stop = current_price * 0.995
+                target1 = current_price * 1.006
+                target2 = current_price * 1.012
+                rr = 1.5
+            else:
+                if signal_side == "🔴 SHORT":
+                    stop = current_price + (atr * 1.2)
+                    target1 = current_price - (atr * 1.5)
+                    target2 = current_price - (atr * 2.5)
+                    rr = (current_price - target2) / (stop - current_price)
+                else:
+                    stop = current_price - (atr * 1.2)
+                    target1 = current_price + (atr * 1.5)
+                    target2 = current_price + (atr * 2.5)
+                    rr = (target2 - current_price) / (current_price - stop)
 
             alerts.append({
                 "symbol": symbol,
@@ -1399,10 +1421,12 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
                 "volume_change": volume_change,
                 "momentum": last_momentum,
                 "stop": stop,
+                "rr": rr,
                 "target1": target1,
                 "target2": target2,
                 "timeframes": timeframe_confirmations,
                 "reasons": reasons[:5]
+                
             })
 
             scalp_cooldown[symbol] = now
@@ -1426,6 +1450,7 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
                 f"🎯 Hedef 1: ${coin['target1']:,.4f}\n"
                 f"🎯 Hedef 2: ${coin['target2']:,.4f}\n"
                 f"🛑 Stop: ${coin['stop']:,.4f}\n\n"
+                f"📊 Risk/Ödül: 1:{coin['rr']:.2f}\n\n"
                 f"📈 EMA Ribbon: {coin['ribbon']}\n"
                 f"💥 Breakout: {coin['breakout']}\n"
                 f"RSI: {coin['rsi']:.2f}\n"
