@@ -1477,7 +1477,6 @@ async def scalp_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("DEBUG SCALP V2 ÇALIŞIYOR")
     if not context.args:
         await update.message.reply_text("Örnek kullanım:\n/scalp btc")
         return
@@ -1521,7 +1520,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         timeframe_confirmations = get_scalp_timeframe_confirmations(symbol)
 
         
-
+        market_structure = detect_scalp_market_structure(closes)
         score = 0
         reasons = []
 
