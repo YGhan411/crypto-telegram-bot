@@ -1499,15 +1499,16 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         recent_low = min(closes[-20:])
 
         breakout = "🟡 Yok"
-
         if current_price >= recent_high * 0.999:
             breakout = "🚀 Yukarı Kırılım"
 
         elif current_price <= recent_low * 1.001:
             breakout = "🔴 Aşağı Kırılım"
 
-        last_momentum = ((current_price - previous_close) / previous_close) * 100
+        market_structure = detect_scalp_market_structure(closes)
 
+        last_momentum = ((current_price - previous_close) / previous_close) * 100  
+      
         rsi = calculate_rsi(closes)
         ema9 = calculate_ema(closes, 9)
         ema21 = calculate_ema(closes, 21)
