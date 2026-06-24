@@ -1542,10 +1542,10 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         macd = calculate_macd(closes)
 
         volume_change = calculate_volume_change(candles)
+        atr = calculate_atr(candles)
         timeframe_confirmations = get_scalp_timeframe_confirmations(symbol)
 
         
-        market_structure = detect_scalp_market_structure(closes)
         score = 0
         reasons = []
 
