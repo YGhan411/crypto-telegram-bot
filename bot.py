@@ -1675,7 +1675,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📌 Durum: {direction}\n\n"
             f"📈 EMA Ribbon: {ribbon}\n\n"
             f"💥 Breakout: {breakout}\n\n"
-            f"📈 Market Structure: {market_structure}\n\n"
+            # f"📈 Market Structure: {market_structure}\n\n"
             f"💰 Fiyat: ${current_price:,.4f}\n"
             f"🎯 Hedef 1: ${target1:,.4f}\n"
             f"🎯 Hedef 2: ${target2:,.4f}\n"
