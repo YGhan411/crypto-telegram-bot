@@ -1477,6 +1477,7 @@ async def scalp_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    market_structure = "⚪ Devre Dışı"
     if not context.args:
         await update.message.reply_text("Örnek kullanım:\n/scalp btc")
         return
@@ -1675,7 +1676,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📌 Durum: {direction}\n\n"
             f"📈 EMA Ribbon: {ribbon}\n\n"
             f"💥 Breakout: {breakout}\n\n"
-            # f"📈 Market Structure: {market_structure}\n\n"
+            f"📈 Market Structure: {market_structure}\n\n"
             f"💰 Fiyat: ${current_price:,.4f}\n"
             f"🎯 Hedef 1: ${target1:,.4f}\n"
             f"🎯 Hedef 2: ${target2:,.4f}\n"
