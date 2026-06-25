@@ -1607,6 +1607,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         market_structure = detect_scalp_market_structure(closes)
         liquidity_sweep = detect_liquidity_sweep(candles)
         fvg = detect_fvg(candles)
+        order_block = detect_order_block(candles)
 
         last_momentum = ((current_price - previous_close) / previous_close) * 100  
       
@@ -1824,6 +1825,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📈 Market Structure: {market_structure}\n\n"
             f"💧 Liquidity Sweep: {liquidity_sweep}\n\n"
             f"🟪 FVG: {fvg}\n\n"
+            f"🧱 Order Block: {order_block}\n\n"
             f"💰 Fiyat: ${current_price:,.4f}\n"
             f"🎯 Hedef 1: ${target1:,.4f}\n"
             f"🎯 Hedef 2: ${target2:,.4f}\n"
@@ -2109,6 +2111,41 @@ def detect_fvg(candles, lookback=10):
         return "🔴 Bearish FVG Var"
 
     return "🟡 FVG Yok"
+def detect_order_block(candles, lookback=20):
+    if len(candles) < lookback + 2:
+        return "⚪ Veri Yok"
+
+    recent = candles[-lookback:]
+
+    for i in range(len(recent) - 2, 1, -1):
+        prev_candle = recent[i - 1]
+        current_candle = recent[i]
+
+        prev_open = prev_candle["open"]
+        prev_close = prev_candle["close"]
+
+        current_open = current_candle["open"]
+        current_close = current_candle["close"]
+
+        # Bullish Order Block:
+        # Düşüş mumu sonrası güçlü yükseliş mumu
+        if prev_close < prev_open and current_close > current_open:
+            body_strength = abs(current_close - current_open)
+            prev_body = abs(prev_close - prev_open)
+
+            if body_strength > prev_body * 1.2:
+                return "🟢 Bullish Order Block"
+
+        # Bearish Order Block:
+        # Yükseliş mumu sonrası güçlü düşüş mumu
+        if prev_close > prev_open and current_close < current_open:
+            body_strength = abs(current_close - current_open)
+            prev_body = abs(prev_close - prev_open)
+
+            if body_strength > prev_body * 1.2:
+                return "🔴 Bearish Order Block"
+
+    return "🟡 Order Block Yok"
 def detect_market_structure(prices, lookback=48):
     if len(prices) < lookback + 5:
         return "⚪ Veri Yetersiz"
