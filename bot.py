@@ -1227,6 +1227,7 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
             liquidity_sweep = detect_liquidity_sweep(candles)
             fvg = detect_fvg(candles)
             order_block = detect_order_block(candles)
+            pd_zone = detect_pd_zone(candles)
 
             last_momentum = ((current_price - previous_close) / previous_close) * 100
 
@@ -1307,6 +1308,13 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
             elif order_block == "🔴 Bearish Order Block":
                 score += 2
                 reasons.append("Bearish order block tespit edildi")
+            if pd_zone == "🟢 Discount Zone":
+                score += 1
+                reasons.append("Fiyat discount bölgede")
+
+            elif pd_zone == "🔴 Premium Zone":
+                score += 1
+                reasons.append("Fiyat premium bölgede")
 
             if market_structure == "🟢 Bullish BOS":
                 score += 2
@@ -1393,6 +1401,11 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
 
             elif order_block == "🔴 Bearish Order Block":
                 short_score += 2
+            if pd_zone == "🟢 Discount Zone":
+                long_score += 1
+
+            elif pd_zone == "🔴 Premium Zone":
+                short_score += 1
 
             if last_momentum > 0:
                 long_score += 1
@@ -1621,6 +1634,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         liquidity_sweep = detect_liquidity_sweep(candles)
         fvg = detect_fvg(candles)
         order_block = detect_order_block(candles)
+        pd_zone = detect_pd_zone(candles)
 
         last_momentum = ((current_price - previous_close) / previous_close) * 100  
       
@@ -1704,6 +1718,13 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif order_block == "🔴 Bearish Order Block":
             score += 2
             reasons.append("Bearish order block tespit edildi")
+        if pd_zone == "🟢 Discount Zone":
+            score += 1
+            reasons.append("Fiyat discount bölgede")
+
+        elif pd_zone == "🔴 Premium Zone":
+            score += 1
+            reasons.append("Fiyat premium bölgede")
 
         if volume_change >= 20:
             score += 2
@@ -1760,6 +1781,11 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif order_block == "🔴 Bearish Order Block":
             short_score += 2
+        if pd_zone == "🟢 Discount Zone":
+            long_score += 1
+
+        elif pd_zone == "🔴 Premium Zone":
+            short_score += 1
 
         if last_momentum > 0:
             long_score += 1
@@ -1851,6 +1877,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💧 Liquidity Sweep: {liquidity_sweep}\n\n"
             f"🟪 FVG: {fvg}\n\n"
             f"🧱 Order Block: {order_block}\n\n"
+            f"📍 P/D Zone: {pd_zone}\n\n"
             f"💰 Fiyat: ${current_price:,.4f}\n"
             f"🎯 Hedef 1: ${target1:,.4f}\n"
             f"🎯 Hedef 2: ${target2:,.4f}\n"
@@ -2171,6 +2198,25 @@ def detect_order_block(candles, lookback=20):
                 return "🔴 Bearish Order Block"
 
     return "🟡 Order Block Yok"
+def detect_pd_zone(candles, lookback=30):
+    if len(candles) < lookback:
+        return "⚪ Veri Yok"
+
+    highs = [c["high"] for c in candles[-lookback:]]
+    lows = [c["low"] for c in candles[-lookback:]]
+
+    swing_high = max(highs)
+    swing_low = min(lows)
+
+    current_price = candles[-1]["close"]
+    equilibrium = (swing_high + swing_low) / 2
+
+    if current_price < equilibrium:
+        return "🟢 Discount Zone"
+    elif current_price > equilibrium:
+        return "🔴 Premium Zone"
+    else:
+        return "🟡 Equilibrium"
 def detect_market_structure(prices, lookback=48):
     if len(prices) < lookback + 5:
         return "⚪ Veri Yetersiz"
