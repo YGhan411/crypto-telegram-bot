@@ -1378,7 +1378,22 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
 
 
             if ribbon not in ["🟢 Mükemmel", "🟢 Güçlü"]:
-                continue            
+                continue 
+            if signal_side == "🟢 LONG":
+                if positive_tf < 2:
+                    continue
+                if volume_change < 5:
+                    continue
+                if breakout != "🚀 Yukarı Kırılım":
+                    continue
+
+            elif signal_side == "🔴 SHORT":
+                if negative_tf < 2:
+                    continue
+                if volume_change < 5:
+                    continue
+                if breakout != "🔴 Aşağı Kırılım":
+                    continue           
             now = time.time()
             last_alert_time = scalp_cooldown.get(symbol, 0)
             cooldown_seconds = 45 * 60
@@ -1556,6 +1571,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             breakout = "🔴 Aşağı Kırılım"
 
         market_structure = detect_scalp_market_structure(closes)
+        liquidity_sweep = detect_liquidity_sweep(candles)
 
         last_momentum = ((current_price - previous_close) / previous_close) * 100  
       
@@ -1739,6 +1755,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📈 EMA Ribbon: {ribbon}\n\n"
             f"💥 Breakout: {breakout}\n\n"
             f"📈 Market Structure: {market_structure}\n\n"
+            f"💧 Liquidity Sweep: {liquidity_sweep}\n\n"
             f"💰 Fiyat: ${current_price:,.4f}\n"
             f"🎯 Hedef 1: ${target1:,.4f}\n"
             f"🎯 Hedef 2: ${target2:,.4f}\n"
@@ -1959,7 +1976,28 @@ def detect_scalp_market_structure(closes, lookback=30):
 
     return "🟡 Range / Belirsiz"
 
+def detect_liquidity_sweep(candles, lookback=20):
+    if len(candles) < lookback + 2:
+        return "⚪ Veri Yok"
 
+    highs = [c["high"] for c in candles]
+    lows = [c["low"] for c in candles]
+    closes = [c["close"] for c in candles]
+
+    recent_high = max(highs[-lookback-1:-1])
+    recent_low = min(lows[-lookback-1:-1])
+
+    last_high = highs[-1]
+    last_low = lows[-1]
+    last_close = closes[-1]
+
+    if last_low < recent_low and last_close > recent_low:
+        return "🟢 Sell-side Liquidity Sweep"
+
+    if last_high > recent_high and last_close < recent_high:
+        return "🔴 Buy-side Liquidity Sweep"
+
+    return "🟡 Sweep Yok"
 def detect_market_structure(prices, lookback=48):
     if len(prices) < lookback + 5:
         return "⚪ Veri Yetersiz"
