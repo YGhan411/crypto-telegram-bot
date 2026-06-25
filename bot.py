@@ -1225,6 +1225,7 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
 
             market_structure = detect_scalp_market_structure(closes)
             liquidity_sweep = detect_liquidity_sweep(candles)
+            fvg = detect_fvg(candles)
 
             last_momentum = ((current_price - previous_close) / previous_close) * 100
 
@@ -1283,6 +1284,21 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
             elif liquidity_sweep == "🔴 Buy-side Liquidity Sweep":
                 score += 2
                 reasons.append("Buy-side liquidity sweep sonrası düşüş sinyali")
+            if fvg == "🟢 Bullish FVG İçinde":
+                score += 3
+                reasons.append("Bullish FVG içinde fiyatlanıyor")
+
+            elif fvg == "🟢 Bullish FVG Var":
+                score += 1
+                reasons.append("Yakında bullish FVG bulundu")
+
+            elif fvg == "🔴 Bearish FVG İçinde":
+                score += 3
+                reasons.append("Bearish FVG içinde fiyatlanıyor")
+
+            elif fvg == "🔴 Bearish FVG Var":
+                score += 1
+                reasons.append("Yakında bearish FVG bulundu")
 
             if market_structure == "🟢 Bullish BOS":
                 score += 2
@@ -1359,6 +1375,11 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
 
             elif liquidity_sweep == "🔴 Buy-side Liquidity Sweep":
                 short_score += 3
+            if fvg in ["🟢 Bullish FVG İçinde", "🟢 Bullish FVG Var"]:
+                long_score += 2
+
+            elif fvg in ["🔴 Bearish FVG İçinde", "🔴 Bearish FVG Var"]:
+                short_score += 2
 
             if last_momentum > 0:
                 long_score += 1
@@ -1647,6 +1668,21 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif liquidity_sweep == "🔴 Buy-side Liquidity Sweep":
             score += 2
             reasons.append("Buy-side liquidity sweep sonrası düşüş sinyali")
+        if fvg == "🟢 Bullish FVG İçinde":
+            score += 3
+            reasons.append("Bullish FVG içinde fiyatlanıyor")
+
+        elif fvg == "🟢 Bullish FVG Var":
+            score += 1
+            reasons.append("Yakında bullish FVG bulundu")
+
+        elif fvg == "🔴 Bearish FVG İçinde":
+            score += 3
+            reasons.append("Bearish FVG içinde fiyatlanıyor")
+
+        elif fvg == "🔴 Bearish FVG Var":
+            score += 1
+            reasons.append("Yakında bearish FVG bulundu")
 
         if volume_change >= 20:
             score += 2
@@ -1693,6 +1729,11 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif liquidity_sweep == "🔴 Buy-side Liquidity Sweep":
             short_score += 3
+        if fvg in ["🟢 Bullish FVG İçinde", "🟢 Bullish FVG Var"]:
+            long_score += 2
+
+        elif fvg in ["🔴 Bearish FVG İçinde", "🔴 Bearish FVG Var"]:
+            short_score += 2
 
         if last_momentum > 0:
             long_score += 1
