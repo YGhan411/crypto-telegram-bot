@@ -1652,6 +1652,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         score = 0
         reasons = []
+        ict_score = 0
 
         if rsi is not None:
             if 45 <= rsi <= 68:
@@ -1736,7 +1737,26 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif breakout == "🔴 Aşağı Kırılım":
             reasons.append("Son 20 mum desteği aşağı kırılıyor")
+        if market_structure in ["🟢 Bullish BOS", "🔴 Bearish BOS"]:
+            ict_score += 2
+        elif market_structure in ["🟢 Bullish CHoCH", "🔴 Bearish CHoCH"]:
+            ict_score += 3
 
+        if liquidity_sweep in ["🟢 Sell-side Liquidity Sweep", "🔴 Buy-side Liquidity Sweep"]:
+            ict_score += 2
+
+        if fvg in ["🟢 Bullish FVG İçinde", "🔴 Bearish FVG İçinde"]:
+            ict_score += 2
+        elif fvg in ["🟢 Bullish FVG Var", "🔴 Bearish FVG Var"]:
+            ict_score += 1
+
+        if order_block in ["🟢 Bullish Order Block", "🔴 Bearish Order Block"]:
+            ict_score += 2
+
+        if pd_zone in ["🟢 Discount Zone", "🔴 Premium Zone"]:
+            ict_score += 1
+
+        ict_score = min(ict_score, 10)
         long_score = 0
         short_score = 0
 
@@ -1891,7 +1911,8 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"15m ➜ {timeframe_confirmations['15m']}\n"
             f"1H ➜ {timeframe_confirmations['1H']}\n\n"
 
-            f"⭐ Scalp Skoru: {score}/10\n\n"
+            f"⭐ Scalp Skoru: {score}/10\n"
+            f"🧠 ICT Skoru: {ict_score}/10\n\n"
             f"🧠 Sebep:\n{reasons_text}\n\n"
             "⚠️ Bu finansal tavsiye değildir."
         )
