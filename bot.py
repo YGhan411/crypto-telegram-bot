@@ -1585,6 +1585,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         market_structure = detect_scalp_market_structure(closes)
         liquidity_sweep = detect_liquidity_sweep(candles)
+        fvg = detect_fvg(candles)
 
         last_momentum = ((current_price - previous_close) / previous_close) * 100  
       
@@ -1781,6 +1782,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💥 Breakout: {breakout}\n\n"
             f"📈 Market Structure: {market_structure}\n\n"
             f"💧 Liquidity Sweep: {liquidity_sweep}\n\n"
+            f"🟪 FVG: {fvg}\n\n"
             f"💰 Fiyat: ${current_price:,.4f}\n"
             f"🎯 Hedef 1: ${target1:,.4f}\n"
             f"🎯 Hedef 2: ${target2:,.4f}\n"
@@ -2023,6 +2025,49 @@ def detect_liquidity_sweep(candles, lookback=20):
         return "🔴 Buy-side Liquidity Sweep"
 
     return "🟡 Sweep Yok"
+def detect_fvg(candles, lookback=10):
+    if len(candles) < 3:
+        return "⚪ Veri Yok"
+
+    recent = candles[-lookback:] if len(candles) >= lookback else candles
+
+    bullish_fvg = None
+    bearish_fvg = None
+
+    for i in range(2, len(recent)):
+        c1 = recent[i - 2]
+        c2 = recent[i - 1]
+        c3 = recent[i]
+
+        # Bullish FVG:
+        # 1. mumun high'ı ile 3. mumun low'u arasında boşluk
+        if c1["high"] < c3["low"]:
+            bullish_fvg = {
+                "low": c1["high"],
+                "high": c3["low"]
+            }
+
+        # Bearish FVG:
+        # 1. mumun low'u ile 3. mumun high'ı arasında boşluk
+        if c1["low"] > c3["high"]:
+            bearish_fvg = {
+                "low": c3["high"],
+                "high": c1["low"]
+            }
+
+    last_close = candles[-1]["close"]
+
+    if bullish_fvg:
+        if bullish_fvg["low"] <= last_close <= bullish_fvg["high"]:
+            return "🟢 Bullish FVG İçinde"
+        return "🟢 Bullish FVG Var"
+
+    if bearish_fvg:
+        if bearish_fvg["low"] <= last_close <= bearish_fvg["high"]:
+            return "🔴 Bearish FVG İçinde"
+        return "🔴 Bearish FVG Var"
+
+    return "🟡 FVG Yok"
 def detect_market_structure(prices, lookback=48):
     if len(prices) < lookback + 5:
         return "⚪ Veri Yetersiz"
