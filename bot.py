@@ -1247,6 +1247,7 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
 
             score = 0
             reasons = []
+            ict_score = 0
             if 45 <= rsi <= 68:
                 score += 2
                 reasons.append("RSI scalp için sağlıklı")
@@ -1357,7 +1358,26 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
                 reasons.append("Son 20 mum direnci kırılıyor")
             elif breakout == "🔴 Aşağı Kırılım":
                 reasons.append("Son 20 mum desteği aşağı kırılıyor")
+            if market_structure in ["🟢 Bullish BOS", "🔴 Bearish BOS"]:
+                ict_score += 2
+            elif market_structure in ["🟢 Bullish CHoCH", "🔴 Bearish CHoCH"]:
+                ict_score += 3
 
+            if liquidity_sweep in ["🟢 Sell-side Liquidity Sweep", "🔴 Buy-side Liquidity Sweep"]:
+                ict_score += 2
+
+            if fvg in ["🟢 Bullish FVG İçinde", "🔴 Bearish FVG İçinde"]:
+                ict_score += 2
+            elif fvg in ["🟢 Bullish FVG Var", "🔴 Bearish FVG Var"]:
+                ict_score += 1
+
+            if order_block in ["🟢 Bullish Order Block", "🔴 Bearish Order Block"]:
+                ict_score += 2
+
+            if pd_zone in ["🟢 Discount Zone", "🔴 Premium Zone"]:
+                ict_score += 1
+
+            ict_score = min(ict_score, 10)
             long_score = 0
             short_score = 0
 
@@ -1420,9 +1440,12 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
                 signal_side = "🟡 NÖTR"
 
             score = min(score, 10)
-            setup_power = score * 10
+            setup_power = min(100, (score * 7) + (ict_score * 3))
 
             if setup_power < 90:
+                continue
+
+            if ict_score < 5:
                 continue
            
             if signal_side == "🟢 LONG":
@@ -1836,7 +1859,7 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             direction = "BEKLE"
 
-        setup_power = score * 10
+        setup_power = min(100, (score * 7) + (ict_score * 3))
 
         if setup_power >= 90:
             setup_label = "🏆 A+ KURUMSAL LONG"
