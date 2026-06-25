@@ -1226,6 +1226,7 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
             market_structure = detect_scalp_market_structure(closes)
             liquidity_sweep = detect_liquidity_sweep(candles)
             fvg = detect_fvg(candles)
+            order_block = detect_order_block(candles)
 
             last_momentum = ((current_price - previous_close) / previous_close) * 100
 
@@ -1299,6 +1300,13 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
             elif fvg == "🔴 Bearish FVG Var":
                 score += 1
                 reasons.append("Yakında bearish FVG bulundu")
+            if order_block == "🟢 Bullish Order Block":
+                score += 2
+                reasons.append("Bullish order block tespit edildi")
+
+            elif order_block == "🔴 Bearish Order Block":
+                score += 2
+                reasons.append("Bearish order block tespit edildi")
 
             if market_structure == "🟢 Bullish BOS":
                 score += 2
@@ -1379,6 +1387,11 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
                 long_score += 2
 
             elif fvg in ["🔴 Bearish FVG İçinde", "🔴 Bearish FVG Var"]:
+                short_score += 2
+            if order_block == "🟢 Bullish Order Block":
+                long_score += 2
+
+            elif order_block == "🔴 Bearish Order Block":
                 short_score += 2
 
             if last_momentum > 0:
@@ -1684,6 +1697,13 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif fvg == "🔴 Bearish FVG Var":
             score += 1
             reasons.append("Yakında bearish FVG bulundu")
+        if order_block == "🟢 Bullish Order Block":
+            score += 2
+            reasons.append("Bullish order block tespit edildi")
+
+        elif order_block == "🔴 Bearish Order Block":
+            score += 2
+            reasons.append("Bearish order block tespit edildi")
 
         if volume_change >= 20:
             score += 2
@@ -1734,6 +1754,11 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             long_score += 2
 
         elif fvg in ["🔴 Bearish FVG İçinde", "🔴 Bearish FVG Var"]:
+            short_score += 2
+        if order_block == "🟢 Bullish Order Block":
+            long_score += 2
+
+        elif order_block == "🔴 Bearish Order Block":
             short_score += 2
 
         if last_momentum > 0:
