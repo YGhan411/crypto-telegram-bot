@@ -1626,6 +1626,13 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if last_momentum > 0:
             score += 1
             reasons.append("Son mum pozitif")
+        if liquidity_sweep == "🟢 Sell-side Liquidity Sweep":
+            score += 2
+            reasons.append("Sell-side liquidity sweep sonrası dönüş sinyali")
+
+        elif liquidity_sweep == "🔴 Buy-side Liquidity Sweep":
+            score += 2
+            reasons.append("Buy-side liquidity sweep sonrası düşüş sinyali")
 
         if volume_change >= 20:
             score += 2
@@ -1667,6 +1674,11 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             long_score += 2
         elif breakout == "🔴 Aşağı Kırılım":
             short_score += 2
+        if liquidity_sweep == "🟢 Sell-side Liquidity Sweep":
+            long_score += 3
+
+        elif liquidity_sweep == "🔴 Buy-side Liquidity Sweep":
+            short_score += 3
 
         if last_momentum > 0:
             long_score += 1
