@@ -1655,11 +1655,8 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if rsi is not None:
             if 45 <= rsi <= 68:
-                score += 2
-                reasons.append("RSI scalp için sağlıklı")
-            elif 35 <= rsi < 45:
                 score += 1
-                reasons.append("RSI toparlanma bölgesinde")
+                reasons.append("RSI destekleyici")
             elif rsi > 75:
                 reasons.append("RSI aşırı ısınmış")
 
@@ -1681,11 +1678,10 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reasons.append("EMA Ribbon zayıf")
         if macd is not None:
             if macd > 0:
-                score += 2
-                reasons.append("MACD pozitif")
+                score += 1
+                reasons.append("MACD destekleyici")
             else:
-                reasons.append("MACD negatif")
-
+                reasons.append("MACD zayıf")        
         if last_momentum > 0:
             score += 1
             reasons.append("Son mum pozitif")
