@@ -1398,9 +1398,9 @@ async def scalp_scan(context: ContextTypes.DEFAULT_TYPE):
 
             if macd is not None:
                 if macd > 0:
-                    long_score += 2
+                    long_score += 1
                 elif macd < 0:
-                    short_score += 2
+                    short_score += 1
 
             if breakout == "🚀 Yukarı Kırılım":
                 long_score += 2
