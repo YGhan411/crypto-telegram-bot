@@ -1655,9 +1655,11 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         market_structure = detect_scalp_market_structure(closes)
         liquidity_sweep = detect_liquidity_sweep(candles)
+        liquidity_v2 = detect_liquidity_sweep_v2(candles)
         fvg = detect_fvg(candles)
         order_block = detect_order_block(candles)
         pd_zone = detect_pd_zone(candles)
+        displacement = detect_displacement(candles)
 
         last_momentum = ((current_price - previous_close) / previous_close) * 100  
       
@@ -1914,9 +1916,11 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💥 Breakout: {breakout}\n\n"
             f"📈 Market Structure: {market_structure}\n\n"
             f"💧 Liquidity Sweep: {liquidity_sweep}\n\n"
+            f"💧 Liquidity V2: {liquidity_v2['type']} | Skor: {liquidity_v2['score']}\n\n"
             f"🟪 FVG: {fvg}\n\n"
             f"🧱 Order Block: {order_block}\n\n"
             f"📍 P/D Zone: {pd_zone}\n\n"
+            f"⚡ Displacement: {displacement['type']} | Güç: {displacement['strength']}\n\n"
             f"💰 Fiyat: ${current_price:,.4f}\n"
             f"🎯 Hedef 1: ${target1:,.4f}\n"
             f"🎯 Hedef 2: ${target2:,.4f}\n"
@@ -2160,6 +2164,44 @@ def detect_liquidity_sweep(candles, lookback=20):
         return "🔴 Buy-side Liquidity Sweep"
 
     return "🟡 Sweep Yok"
+def detect_liquidity_sweep_v2(candles, lookback=30):
+    if len(candles) < lookback + 5:
+        return {
+            "type": "⚪ Veri Yok",
+            "score": 0,
+            "swept_level": None
+        }
+
+    highs = [c["high"] for c in candles]
+    lows = [c["low"] for c in candles]
+    closes = [c["close"] for c in candles]
+
+    recent_high = max(highs[-lookback-1:-1])
+    recent_low = min(lows[-lookback-1:-1])
+
+    last_high = highs[-1]
+    last_low = lows[-1]
+    last_close = closes[-1]
+
+    if last_low < recent_low and last_close > recent_low:
+        return {
+            "type": "🟢 Sell-side Sweep V2",
+            "score": 3,
+            "swept_level": recent_low
+        }
+
+    if last_high > recent_high and last_close < recent_high:
+        return {
+            "type": "🔴 Buy-side Sweep V2",
+            "score": 3,
+            "swept_level": recent_high
+        }
+
+    return {
+        "type": "🟡 Sweep Yok",
+        "score": 0,
+        "swept_level": None
+    }
 def detect_fvg(candles, lookback=10):
     if len(candles) < 3:
         return "⚪ Veri Yok"
@@ -2238,6 +2280,56 @@ def detect_order_block(candles, lookback=20):
                 return "🔴 Bearish Order Block"
 
     return "🟡 Order Block Yok"
+def detect_displacement(candles, lookback=20):
+    if len(candles) < lookback + 1:
+        return {
+            "type": "⚪ Veri Yok",
+            "score": 0,
+            "strength": 0
+        }
+
+    recent = candles[-lookback:]
+
+    bodies = [
+        abs(c["close"] - c["open"])
+        for c in recent[:-1]
+    ]
+
+    avg_body = sum(bodies) / len(bodies)
+
+    last = recent[-1]
+    last_body = abs(last["close"] - last["open"])
+    candle_range = last["high"] - last["low"]
+
+    if candle_range == 0 or avg_body == 0:
+        return {
+            "type": "⚪ Veri Yok",
+            "score": 0,
+            "strength": 0
+        }
+
+    body_ratio = last_body / candle_range
+    strength = last_body / avg_body
+
+    if last["close"] > last["open"] and strength >= 1.8 and body_ratio >= 0.6:
+        return {
+            "type": "🟢 Bullish Displacement",
+            "score": 3,
+            "strength": round(strength, 2)
+        }
+
+    if last["close"] < last["open"] and strength >= 1.8 and body_ratio >= 0.6:
+        return {
+            "type": "🔴 Bearish Displacement",
+            "score": 3,
+            "strength": round(strength, 2)
+        }
+
+    return {
+        "type": "🟡 Displacement Yok",
+        "score": 0,
+        "strength": round(strength, 2)
+    }
 def detect_pd_zone(candles, lookback=30):
     if len(candles) < lookback:
         return "⚪ Veri Yok"
@@ -2257,6 +2349,55 @@ def detect_pd_zone(candles, lookback=30):
         return "🔴 Premium Zone"
     else:
         return "🟡 Equilibrium"
+def analyze_ict_setup(symbol, interval="15"):
+    candles = get_bybit_klines(symbol, interval=interval, limit=100)
+
+    if len(candles) < 50:
+        return None
+
+    closes = [c["close"] for c in candles]
+
+    current_price = closes[-1]
+    previous_close = closes[-2]
+    recent_high = max(closes[-20:])
+    recent_low = min(closes[-20:])
+
+    breakout = "🟡 Yok"
+
+    if current_price >= recent_high * 0.999:
+        breakout = "🚀 Yukarı Kırılım"
+    elif current_price <= recent_low * 1.001:
+        breakout = "🔴 Aşağı Kırılım"
+
+    last_momentum = ((current_price - previous_close) / previous_close) * 100
+    timeframe_confirmations = get_scalp_timeframe_confirmations(symbol)
+    market_structure = detect_scalp_market_structure(closes)
+
+    liquidity_sweep = detect_liquidity_sweep(candles)
+    liquidity_v2 = detect_liquidity_sweep_v2(candles)
+    fvg = detect_fvg(candles)
+    order_block = detect_order_block(candles)
+    pd_zone = detect_pd_zone(candles)
+
+    atr = calculate_atr(candles)
+
+    return {
+        "symbol": symbol,
+        "candles": candles,
+        "closes": closes,
+        "current_price": current_price,
+        "previous_close": previous_close,
+        "market_structure": market_structure,
+        "liquidity_sweep": liquidity_sweep,
+        "liquidity_v2": liquidity_v2,
+        "fvg": fvg,
+        "order_block": order_block,
+        "pd_zone": pd_zone,
+        "atr": atr,
+        "breakout": breakout,
+        "last_momentum": last_momentum,
+        "timeframe_confirmations": timeframe_confirmations,
+    }
 def detect_market_structure(prices, lookback=48):
     if len(prices) < lookback + 5:
         return "⚪ Veri Yetersiz"
