@@ -15,6 +15,7 @@ from ict.order_block import detect_order_block
 from ict.pd_zone import detect_pd_zone
 from ict.equal_high_low import detect_equal_high_low
 from ict.displacement import detect_displacement
+from engines.ict_engine import analyze_ict_setup as analyze_ict_setup_engine
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -1558,7 +1559,11 @@ async def scalp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     symbol = context.args[0].upper()
 
-    analysis = analyze_ict_setup(symbol)
+    analysis = analyze_ict_setup_engine(
+        symbol,
+        get_bybit_klines,
+        get_scalp_timeframe_confirmations
+    )
 
     if analysis is None:
         await update.message.reply_text("❌ ICT analizi için yeterli veri yok.")
