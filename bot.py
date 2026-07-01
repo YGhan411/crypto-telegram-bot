@@ -7,6 +7,9 @@ from indicators.rsi import calculate_rsi
 from indicators.macd import calculate_macd
 from indicators.atr import calculate_atr
 from indicators.volume import calculate_volume_change
+from ict.market_structure import detect_scalp_market_structure
+from ict.liquidity import detect_liquidity_sweep
+from ict.liquidity import detect_liquidity_sweep_v2
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -2063,92 +2066,6 @@ def calculate_fibonacci_levels(prices):
         "fib_786": fib_786
     }
 
-def detect_scalp_market_structure(closes, lookback=30):
-    if len(closes) < lookback + 5:
-        return "⚪ Veri Yok"
-
-    recent = closes[-lookback:]
-
-    previous_high = max(recent[:-5])
-    previous_low = min(recent[:-5])
-
-    current_price = recent[-1]
-    previous_price = recent[-5]
-
-    if current_price > previous_high:
-        return "🟢 Bullish BOS"
-
-    elif current_price < previous_low:
-        return "🔴 Bearish BOS"
-
-    elif current_price > previous_price and previous_price <= previous_low * 1.01:
-        return "🟢 Bullish CHoCH"
-
-    elif current_price < previous_price and previous_price >= previous_high * 0.99:
-        return "🔴 Bearish CHoCH"
-
-    return "🟡 Range / Belirsiz"
-
-def detect_liquidity_sweep(candles, lookback=20):
-    if len(candles) < lookback + 2:
-        return "⚪ Veri Yok"
-
-    highs = [c["high"] for c in candles]
-    lows = [c["low"] for c in candles]
-    closes = [c["close"] for c in candles]
-
-    recent_high = max(highs[-lookback-1:-1])
-    recent_low = min(lows[-lookback-1:-1])
-
-    last_high = highs[-1]
-    last_low = lows[-1]
-    last_close = closes[-1]
-
-    if last_low < recent_low and last_close > recent_low:
-        return "🟢 Sell-side Liquidity Sweep"
-
-    if last_high > recent_high and last_close < recent_high:
-        return "🔴 Buy-side Liquidity Sweep"
-
-    return "🟡 Sweep Yok"
-def detect_liquidity_sweep_v2(candles, lookback=30):
-    if len(candles) < lookback + 5:
-        return {
-            "type": "⚪ Veri Yok",
-            "score": 0,
-            "swept_level": None
-        }
-
-    highs = [c["high"] for c in candles]
-    lows = [c["low"] for c in candles]
-    closes = [c["close"] for c in candles]
-
-    recent_high = max(highs[-lookback-1:-1])
-    recent_low = min(lows[-lookback-1:-1])
-
-    last_high = highs[-1]
-    last_low = lows[-1]
-    last_close = closes[-1]
-
-    if last_low < recent_low and last_close > recent_low:
-        return {
-            "type": "🟢 Sell-side Sweep V2",
-            "score": 3,
-            "swept_level": recent_low
-        }
-
-    if last_high > recent_high and last_close < recent_high:
-        return {
-            "type": "🔴 Buy-side Sweep V2",
-            "score": 3,
-            "swept_level": recent_high
-        }
-
-    return {
-        "type": "🟡 Sweep Yok",
-        "score": 0,
-        "swept_level": None
-    }
 def detect_fvg(candles, lookback=10):
     if len(candles) < 3:
         return "⚪ Veri Yok"
