@@ -2,6 +2,11 @@ import os
 import time
 import requests
 from telegram import Update
+from indicators.ema import calculate_ema
+from indicators.rsi import calculate_rsi
+from indicators.macd import calculate_macd
+from indicators.atr import calculate_atr
+from indicators.volume import calculate_volume_change
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -91,56 +96,6 @@ def get_prices_for_ta(coin_id):
     }
 
     return prices
-def calculate_ema(prices, period):
-    if len(prices) < period:
-        return None
-
-    multiplier = 2 / (period + 1)
-    ema = sum(prices[:period]) / period
-
-    for price in prices[period:]:
-        ema = (price - ema) * multiplier + ema
-
-    return ema
-
-
-def calculate_rsi(prices, period=14):
-    if len(prices) < period + 1:
-        return None
-
-    gains = []
-    losses = []
-
-    for i in range(1, period + 1):
-        change = prices[i] - prices[i - 1]
-
-        if change >= 0:
-            gains.append(change)
-            losses.append(0)
-        else:
-            gains.append(0)
-            losses.append(abs(change))
-
-    avg_gain = sum(gains) / period
-    avg_loss = sum(losses) / period
-
-    if avg_loss == 0:
-        return 100
-
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-
-    return rsi
-
-
-def calculate_macd(prices):
-    ema12 = calculate_ema(prices, 12)
-    ema26 = calculate_ema(prices, 26)
-
-    if ema12 is None or ema26 is None:
-        return None
-
-    return ema12 - ema26
 
 def to_okx_symbol(symbol):
     return f"{symbol.upper()}-USDT-SWAP"
@@ -180,43 +135,7 @@ def get_bybit_klines(symbol, interval="15", limit=100):
         })
 
     return candles
-   
 
-
-def calculate_volume_change(candles, period=20):
-    if len(candles) < period + 1:
-        return 0
-
-    recent_volume = candles[-1]["volume"]
-    avg_volume = sum(c["volume"] for c in candles[-period-1:-1]) / period
-
-    if avg_volume <= 0:
-        return 0
-
-    return ((recent_volume - avg_volume) / avg_volume) * 100
-def calculate_atr(candles, period=14):
-    if len(candles) < period + 1:
-        return None
-
-    true_ranges = []
-
-    for i in range(1, len(candles)):
-        high = candles[i]["high"]
-        low = candles[i]["low"]
-        prev_close = candles[i - 1]["close"]
-
-        tr = max(
-            high - low,
-            abs(high - prev_close),
-            abs(low - prev_close)
-        )
-        true_ranges.append(tr)
-
-    if len(true_ranges) < period:
-        return None
-
-    atr_values = true_ranges[-period:]
-    return sum(atr_values) / len(atr_values)
 def analyze_scalp_timeframe(symbol, interval):
     try:
         candles = get_bybit_klines(symbol, interval=interval, limit=100)
